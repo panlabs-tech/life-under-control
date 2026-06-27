@@ -1,0 +1,110 @@
+name: pr-checks
+
+# Portão 2 — gate real antes do merge na main.
+# Dispara no push das branches de trabalho (incluindo worktree/** geradas
+# pelo agente). open-pr abre PR para a main quando todos os checks ficam
+# verdes; o merge é autônomo no verde (ADR-0007).
+#
+# O job web pula em verde enquanto apps/web ainda não existe (pré-protótipo).
+
+on:
+  push:
+    branches:
+      - "feat/**"
+      - "fix/**"
+      - "chore/**"
+      - "docs/**"
+      - "refactor/**"
+      - "test/**"
+      - "worktree/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - id: appcheck
+        run: |
+          if [ -f apps/web/package.json ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::apps/web ainda nao existe — gate web pulado."
+          fi
+      - uses: pnpm/action-setup@v6
+        if: steps.appcheck.outputs.exists == 'true'
+      - uses: actions/setup-node@v6
+        if: steps.appcheck.outputs.exists == 'true'
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - if: steps.appcheck.outputs.exists == 'true'
+        run: pnpm install --frozen-lockfile
+      - name: lint (biome)
+        if: steps.appcheck.outputs.exists == 'true'
+        run: node_modules/.bin/biome check apps/web
+      - name: typecheck (tsc)
+        if: steps.appcheck.outputs.exists == 'true'
+        run: pnpm --filter @luc/web typecheck
+      - name: test (vitest)
+        if: steps.appcheck.outputs.exists == 'true'
+        run: pnpm --filter @luc/web test
+
+  security:
+    name: security
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  open-pr:
+    name: open-pr
+    needs: [web, security]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Abrir PR para a main se ainda nao existir
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          if [ "$(gh pr list --head "$BRANCH" --base main --state open --json number --jq 'length')" -ne 0 ]; then
+            echo "::notice::Ja existe PR aberto de $BRANCH para a main."
+            exit 0
+          fi
+
+          git fetch --quiet origin main
+          if [ "$(git rev-list --count FETCH_HEAD..HEAD)" -eq 0 ]; then
+            echo "::notice::$BRANCH nao tem commits novos sobre a main."
+            exit 0
+          fi
+
+          title="$(git log "FETCH_HEAD..HEAD" --pretty=%s | head -n1 || true)"
+          [ -z "$title" ] && title="$(git log -1 --pretty=%s)"
+
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "$title" \
+            --body "PR aberto automaticamente apos checks verdes (pr-checks). Merge autonomo no verde (ADR-0007)."
+
+          echo "::notice::PR aberto: $BRANCH -> main"
