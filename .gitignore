@@ -1,0 +1,61 @@
+# Scratch dirs — nunca commitar
+**prompts
+**tmp
+**raw
+*.claude/design
+.local/
+
+# Segredos locais — NUNCA commitar (tokens de produção)
+.env
+.env.local
+.env.*.local
+!.env.example
+.mcp.json
+.codex/config.toml
+.claude/settings.local.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyright/
+.coverage
+htmlcov/
+
+# uv
+.uv-cache/
+
+# Node
+node_modules/
+.next/
+out/
+dist/
+build/
+.turbo/
+.pnpm-store/
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Crypto / SSH material — never commit private keys or certs
+*.key
+*.pem
+id_rsa*
+id_ed25519*
+id_ecdsa*
+*.p12
+
+# OS
+.DS_Store
