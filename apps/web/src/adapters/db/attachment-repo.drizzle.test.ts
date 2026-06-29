@@ -122,7 +122,7 @@ suite("drizzleAttachmentRepo (Seam 2 — Postgres real)", () => {
     expect(att.id).toBe(attId)
     expect(att.householdId).toBe(larId)
     expect(att.paymentId).toBe(paymentId)
-    expect(att.chaveR2).toBe(`${larId}/${paymentId}/${attId}`)
+    expect(att.chaveR2).toBe(chaveComprovante(larId, paymentId, attId))
     expect(att.uploadedBy).toBe(pessoa1)
     expect(att.nomeOriginal).toBe("comprovante.pdf")
     expect(att.tipoMime).toBe("application/pdf")
