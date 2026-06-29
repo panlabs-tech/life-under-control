@@ -3,6 +3,7 @@
 import { useEffect, useId, useState } from "react"
 import { Button } from "@/components/ds/Button"
 import { BillIcon } from "@/components/financas/BillIcon"
+import { type BillFormInicial, INICIAL_PADRAO } from "@/components/financas/bill-form-inicial"
 import {
   BILL_ICONS,
   type ErroCampo,
@@ -12,10 +13,13 @@ import {
 } from "@/core/domain/bill"
 
 /**
- * Wizard de cadastro de Conta (borda fina — Seam 3). Coleta nome, descrição,
- * ícone, Recorrência e a regra de vencimento — nunca um valor (invariante #5) —
- * e submete ao server action. A validação-fonte mora no núcleo (`validarDadosBill`);
- * aqui só há lógica de borda: passos, campos condicionais e exibição dos erros.
+ * Formulário de Conta (borda fina — Seam 3). Coleta nome, descrição, ícone,
+ * Recorrência e a regra de vencimento — nunca um valor (invariante #5) — e
+ * submete ao server action. Serve cadastro e edição: o mesmo wizard, mudando só
+ * os valores iniciais e os rótulos do botão. A validação-fonte mora no núcleo
+ * (`validarDadosBill`); aqui só há lógica de borda: passos, campos condicionais
+ * e exibição dos erros. Os valores iniciais (e a projeção de uma Conta neles)
+ * moram num módulo puro irmão (`bill-form-inicial`), chamável do servidor.
  *
  * Todos os campos são controlados de propósito: o valor digitado sobrevive a
  * trocar de passo, alternar a forma de vencimento e ao auto-reset do `<form
@@ -60,21 +64,27 @@ export function BillForm({
   formAction,
   erros = [],
   pending = false,
+  inicial = INICIAL_PADRAO,
+  submitLabel = "Cadastrar Conta",
+  submittingLabel = "Cadastrando…",
 }: {
   formAction: (formData: FormData) => void
   erros?: ErroCampo[]
   pending?: boolean
+  inicial?: BillFormInicial
+  submitLabel?: string
+  submittingLabel?: string
 }) {
   const [passo, setPasso] = useState(0)
-  const [nome, setNome] = useState("")
-  const [descricao, setDescricao] = useState("")
-  const [icon, setIcon] = useState("")
-  const [intervalMonths, setIntervalMonths] = useState("1")
-  const [anchorMonth, setAnchorMonth] = useState("")
-  const [dueRuleKind, setDueRuleKind] = useState("dia-fixo")
-  const [dueRuleDay, setDueRuleDay] = useState("10")
-  const [dueRuleNth, setDueRuleNth] = useState("5")
-  const [dueMonthOffset, setDueMonthOffset] = useState("0")
+  const [nome, setNome] = useState(inicial.nome)
+  const [descricao, setDescricao] = useState(inicial.descricao)
+  const [icon, setIcon] = useState(inicial.icon)
+  const [intervalMonths, setIntervalMonths] = useState(inicial.intervalMonths)
+  const [anchorMonth, setAnchorMonth] = useState(inicial.anchorMonth)
+  const [dueRuleKind, setDueRuleKind] = useState(inicial.dueRuleKind)
+  const [dueRuleDay, setDueRuleDay] = useState(inicial.dueRuleDay)
+  const [dueRuleNth, setDueRuleNth] = useState(inicial.dueRuleNth)
+  const [dueMonthOffset, setDueMonthOffset] = useState(inicial.dueMonthOffset)
   const formId = useId()
 
   const precisaAncora = Number(intervalMonths) > 1
@@ -317,7 +327,7 @@ export function BillForm({
           </Button>
         ) : (
           <Button variant="primary" type="submit" disabled={pending}>
-            {pending ? "Cadastrando…" : "Cadastrar Conta"}
+            {pending ? submittingLabel : submitLabel}
           </Button>
         )}
       </div>

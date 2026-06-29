@@ -1,6 +1,6 @@
-import { asc, eq } from "drizzle-orm"
-import type { Bill, BillEstado, DueRule } from "@/core/domain/bill"
-import type { BillRepo, NovaBill } from "@/core/ports/bill-repo"
+import { and, asc, eq } from "drizzle-orm"
+import type { Bill, BillEstado, DadosBill, DueRule } from "@/core/domain/bill"
+import type { BillRepo, DependentesBill, NovaBill } from "@/core/ports/bill-repo"
 import { type Db, getDb } from "./client"
 import { bills } from "./schema"
 
@@ -31,6 +31,20 @@ function paraDominio(row: BillRow): Bill {
     dueRule: montarDueRule(row),
     dueMonthOffset: row.dueMonthOffset,
     estado: row.estado as BillEstado,
+    encerradaEm: row.encerradaEm,
+  }
+}
+
+/** Desmembra os `DadosBill` validados nas colunas de `bills` (regra, sem estado). */
+function colunasDosDados(dados: DadosBill) {
+  return {
+    nome: dados.nome,
+    descricao: dados.descricao,
+    icon: dados.icon,
+    intervalMonths: dados.recurrence.intervalMonths,
+    anchorMonth: dados.recurrence.anchorMonth,
+    ...colunasDaDueRule(dados.dueRule),
+    dueMonthOffset: dados.dueMonthOffset,
   }
 }
 
@@ -56,16 +70,7 @@ export function drizzleBillRepo(db: Db = getDb()): BillRepo {
     async criarBill(nova: NovaBill): Promise<Bill> {
       const [row] = await db
         .insert(bills)
-        .values({
-          householdId: nova.householdId,
-          nome: nova.nome,
-          descricao: nova.descricao,
-          icon: nova.icon,
-          intervalMonths: nova.recurrence.intervalMonths,
-          anchorMonth: nova.recurrence.anchorMonth,
-          ...colunasDaDueRule(nova.dueRule),
-          dueMonthOffset: nova.dueMonthOffset,
-        })
+        .values({ householdId: nova.householdId, ...colunasDosDados(nova) })
         .returning()
       return paraDominio(row)
     },
@@ -77,6 +82,59 @@ export function drizzleBillRepo(db: Db = getDb()): BillRepo {
         .where(eq(bills.householdId, householdId))
         .orderBy(asc(bills.nome), asc(bills.id))
       return linhas.map(paraDominio)
+    },
+
+    async obterBill(householdId: string, billId: string): Promise<Bill | null> {
+      const [row] = await db
+        .select()
+        .from(bills)
+        .where(and(eq(bills.householdId, householdId), eq(bills.id, billId)))
+      return row ? paraDominio(row) : null
+    },
+
+    async editarBill(householdId: string, billId: string, dados: DadosBill): Promise<Bill | null> {
+      const [row] = await db
+        .update(bills)
+        .set(colunasDosDados(dados))
+        .where(and(eq(bills.householdId, householdId), eq(bills.id, billId)))
+        .returning()
+      return row ? paraDominio(row) : null
+    },
+
+    async encerrarBill(
+      householdId: string,
+      billId: string,
+      encerradaEm: string,
+    ): Promise<Bill | null> {
+      // `estado = 'ativa'` no WHERE torna o encerramento atômico e idempotente-seguro:
+      // um segundo encerrar (forma obsoleta, corrida de acesso simétrico) não acha
+      // linha ativa e devolve null, nunca reescreve a data de encerramento original
+      // (fato passado — invariante #4).
+      const [row] = await db
+        .update(bills)
+        .set({ estado: "encerrada", encerradaEm })
+        .where(
+          and(eq(bills.householdId, householdId), eq(bills.id, billId), eq(bills.estado, "ativa")),
+        )
+        .returning()
+      return row ? paraDominio(row) : null
+    },
+
+    async contarDependentes(_householdId: string, _billId: string): Promise<DependentesBill> {
+      // Lançamentos e Anexos chegam nas próximas fatias de Pagamentos (#19+).
+      // Enquanto as tabelas não existem, não há dependentes — contagem honesta.
+      return { lancamentos: 0, anexos: 0 }
+    },
+
+    async deletarBill(householdId: string, billId: string): Promise<DependentesBill | null> {
+      // Quando `payments`/`attachments` existirem, a exclusão cascateia e a
+      // contagem vem do que foi removido; por ora só a Conta sai.
+      const removidas = await db
+        .delete(bills)
+        .where(and(eq(bills.householdId, householdId), eq(bills.id, billId)))
+        .returning({ id: bills.id })
+      if (removidas.length === 0) return null
+      return { lancamentos: 0, anexos: 0 }
     },
   }
 }
