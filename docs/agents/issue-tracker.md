@@ -11,7 +11,7 @@ Issues e PRDs deste repo vivem como issues do GitHub (`ThiagoPanini/life-under-c
 - **Aplicar/remover label**: `gh issue edit <número> --add-label "..."` / `--remove-label "..."`.
 - **Fechar**: `gh issue close <número> --comment "..."`.
 
-Labels seguem o padrão `família:valor` (`status:`, `type:`, `area:`, `boundary:`, `phase:`); os estados de triagem estão em `triage-labels.md`.
+Labels seguem o padrão `família:valor` (`status:`, `type:`, `area:`, `boundary:`, `phase:`, `needs:`); os estados de triagem e a família `needs:` (incl. `needs:mcp`) estão em `triage-labels.md`.
 
 ## Pull requests como superfície de triagem
 

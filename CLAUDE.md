@@ -78,7 +78,7 @@ Issues e PRDs vivem no GitHub Issues (`ThiagoPanini/life-under-control`, via `gh
 
 ### Triage labels
 
-Cinco papéis de triagem no namespace `status:` — `status:needs-triage` / `needs-info` / `ready-for-agent` / `hitl` (= ready-for-human) / `wontfix`. Ver `docs/agents/triage-labels.md`.
+Cinco papéis de triagem no namespace `status:` — `status:needs-triage` / `needs-info` / `ready-for-agent` / `hitl` (= ready-for-human) / `wontfix`. Família ortogonal `needs:` sinaliza pré-requisito de execução — `needs:mcp` quando a implementação executa um MCP de infra (Coolify/Cloudflare/Hostinger). Ver `docs/agents/triage-labels.md`.
 
 ### Domain docs
 
