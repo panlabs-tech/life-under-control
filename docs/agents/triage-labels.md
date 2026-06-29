@@ -16,4 +16,14 @@ A fronteira AFK↔HITL é de **capacidade/acesso, não de reversibilidade**: DNS
 
 `status:blocked` (bloqueada por dependência/borda externa) é um estado de workflow ortogonal — não faz parte da máquina de triagem de entrada, mas convive no mesmo namespace.
 
-As demais famílias (`type:`, `area:`, `boundary:`, `phase:`) classificam tipo de mudança, área de código, boundary de domínio e fase — são ortogonais à triagem e as skills não as substituem.
+As demais famílias (`type:`, `area:`, `boundary:`, `phase:`, `needs:`) classificam tipo de mudança, área de código, boundary de domínio, fase e pré-requisito de execução — são ortogonais à triagem e as skills não as substituem.
+
+## Família `needs:` — pré-requisito de execução
+
+Marca o que a *implementação* vai exigir, não em que estado de triagem a issue está. Hoje tem um membro:
+
+- **`needs:mcp`** — implementar ou verificar a issue executa pelo menos um dos MCPs de infra (Coolify, Cloudflare ou Hostinger; na prática quase sempre **Coolify**). Casos típicos: criar/dropar recurso próprio no Coolify, mexer em env/deploy, registro DNS no Cloudflare.
+
+Aplique `needs:mcp` ao fatiar (`/to-issues`) ou triar sempre que a slice tocar infra por MCP — e, no fatiamento, sinalize por slice quais precisam dele. É só sinalização organizacional: **não muda a fronteira AFK↔HITL**. Operação de MCP é AFK (o agente tem os MCPs), então uma issue normalmente leva `status:ready-for-agent` **e** `needs:mcp` juntas; só vira `status:hitl` se cair num dos 4 casos da fronteira (acima), nunca por *usar* MCP.
+
+Não confunda com os estados `status:needs-triage`/`status:needs-info`: aqueles são papéis de triagem no namespace `status:`; `needs:` é família de pré-requisito.

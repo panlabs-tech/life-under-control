@@ -1,0 +1,43 @@
+import Link from "next/link"
+import type { ComponentProps, ReactNode } from "react"
+
+/** Botão do design system (Mirante). Com `href`, vira link; senão, <button>. */
+export type ButtonVariant = "primary" | "ghost"
+
+const BASE =
+  "inline-flex min-h-11 touch-manipulation items-center justify-center gap-2 rounded-luc-md px-4 py-2 text-sm font-medium transition-colors active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-luc-accent focus-visible:ring-offset-2 focus-visible:ring-offset-luc-bg"
+
+const VARIANTS: Record<ButtonVariant, string> = {
+  primary: "bg-luc-accent text-luc-bg hover:bg-luc-accent-bright",
+  ghost:
+    "border border-luc-border bg-luc-surface-2 text-luc-text hover:border-luc-accent hover:text-luc-accent",
+}
+
+type ButtonProps = {
+  variant?: ButtonVariant
+  href?: string
+  className?: string
+  children: ReactNode
+} & Omit<ComponentProps<"button">, "className" | "children">
+
+export function Button({
+  variant = "primary",
+  href,
+  className = "",
+  children,
+  ...rest
+}: ButtonProps) {
+  const cls = `${BASE} ${VARIANTS[variant]} ${className}`
+  if (href) {
+    return (
+      <Link href={href} className={cls}>
+        {children}
+      </Link>
+    )
+  }
+  return (
+    <button type="button" className={cls} {...rest}>
+      {children}
+    </button>
+  )
+}
