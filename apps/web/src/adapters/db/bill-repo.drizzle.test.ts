@@ -115,4 +115,100 @@ suite("drizzleBillRepo (Seam 2 — Postgres real)", () => {
     // então a asserção não depende da collation do Postgres (C vs. pt_BR).
     expect(nomes.indexOf("Internet")).toBeLessThan(nomes.indexOf("Luz"))
   })
+
+  it("test_obter_traz_a_conta_do_lar_e_null_fora_dela", async () => {
+    const repo = drizzleBillRepo(db)
+    const criada = await repo.criarBill(nova(larId, { nome: "Streaming", icon: "tv" }))
+
+    expect((await repo.obterBill(larId, criada.id))?.id).toBe(criada.id)
+    // escopo por Lar: outro Lar não enxerga; id inexistente também é null
+    expect(await repo.obterBill("00000000-0000-0000-0000-000000000000", criada.id)).toBeNull()
+    expect(await repo.obterBill(larId, "00000000-0000-0000-0000-000000000000")).toBeNull()
+  })
+
+  it("test_editar_persiste_a_nova_regra_e_preserva_identidade", async () => {
+    const repo = drizzleBillRepo(db)
+    const criada = await repo.criarBill(nova(larId, { nome: "Academia", icon: "dumbbell" }))
+
+    const editada = await repo.editarBill(larId, criada.id, {
+      nome: "Academia Premium",
+      descricao: "plano anual",
+      icon: "dumbbell",
+      recurrence: { intervalMonths: 12, anchorMonth: 1 },
+      dueRule: { kind: "ultimo-dia-util" },
+      dueMonthOffset: 0,
+    })
+
+    expect(editada?.id).toBe(criada.id)
+    expect(editada?.nome).toBe("Academia Premium")
+    expect(editada?.recurrence).toEqual({ intervalMonths: 12, anchorMonth: 1 })
+    expect(editada?.dueRule).toEqual({ kind: "ultimo-dia-util" })
+    // o round-trip de leitura confirma a persistência
+    const relida = await repo.obterBill(larId, criada.id)
+    expect(relida?.nome).toBe("Academia Premium")
+  })
+
+  it("test_editar_conta_inexistente_devolve_null", async () => {
+    const repo = drizzleBillRepo(db)
+    const r = await repo.editarBill(larId, "00000000-0000-0000-0000-000000000000", {
+      nome: "Fantasma",
+      descricao: null,
+      icon: "home",
+      recurrence: { intervalMonths: 1, anchorMonth: null },
+      dueRule: { kind: "dia-fixo", day: 1 },
+      dueMonthOffset: 0,
+    })
+    expect(r).toBeNull()
+  })
+
+  it("test_encerrar_grava_estado_e_data_e_sai_da_ativa", async () => {
+    const repo = drizzleBillRepo(db)
+    const criada = await repo.criarBill(nova(larId, { nome: "TV a cabo", icon: "tv" }))
+    expect(criada.estado).toBe("ativa")
+    expect(criada.encerradaEm).toBeNull()
+
+    const encerrada = await repo.encerrarBill(larId, criada.id, "2026-06-29")
+
+    expect(encerrada?.estado).toBe("encerrada")
+    expect(encerrada?.encerradaEm).toBe("2026-06-29")
+    // relida do banco mantém o encerramento (o check estado⇔data passou)
+    const relida = await repo.obterBill(larId, criada.id)
+    expect(relida?.estado).toBe("encerrada")
+    expect(relida?.encerradaEm).toBe("2026-06-29")
+  })
+
+  it("test_reencerrar_nao_acha_ativa_e_preserva_a_data", async () => {
+    const repo = drizzleBillRepo(db)
+    const criada = await repo.criarBill(nova(larId, { nome: "Revista", icon: "receipt" }))
+    await repo.encerrarBill(larId, criada.id, "2026-06-29")
+
+    // segundo encerrar não encontra Conta ativa (WHERE estado='ativa') → null
+    const reencerrada = await repo.encerrarBill(larId, criada.id, "2026-12-31")
+
+    expect(reencerrada).toBeNull()
+    const relida = await repo.obterBill(larId, criada.id)
+    expect(relida?.encerradaEm).toBe("2026-06-29")
+  })
+
+  it("test_contar_dependentes_zero_sem_lancamentos", async () => {
+    const repo = drizzleBillRepo(db)
+    const criada = await repo.criarBill(nova(larId, { nome: "Seguro", icon: "shield" }))
+    // Lançamentos/Anexos ainda não existem (#19+): contagem honesta de zero.
+    expect(await repo.contarDependentes(larId, criada.id)).toEqual({ lancamentos: 0, anexos: 0 })
+  })
+
+  it("test_deletar_remove_a_conta_e_devolve_contagem", async () => {
+    const repo = drizzleBillRepo(db)
+    const criada = await repo.criarBill(nova(larId, { nome: "Cartão", icon: "credit-card" }))
+
+    const removidos = await repo.deletarBill(larId, criada.id)
+
+    expect(removidos).toEqual({ lancamentos: 0, anexos: 0 })
+    expect(await repo.obterBill(larId, criada.id)).toBeNull()
+  })
+
+  it("test_deletar_conta_inexistente_devolve_null", async () => {
+    const repo = drizzleBillRepo(db)
+    expect(await repo.deletarBill(larId, "00000000-0000-0000-0000-000000000000")).toBeNull()
+  })
 })

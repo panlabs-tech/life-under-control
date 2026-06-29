@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm"
-import { check, integer, pgTable, text, uuid } from "drizzle-orm/pg-core"
+import { check, date, integer, pgTable, text, uuid } from "drizzle-orm/pg-core"
 
 /**
  * Schema Drizzle do LUC. `households` e `users` são identidade/autoria
@@ -47,11 +47,20 @@ export const bills = pgTable(
     dueRuleNth: integer("due_rule_nth"),
     dueMonthOffset: integer("due_month_offset").notNull().default(0),
     estado: text("estado").notNull().default("ativa"),
+    // Data civil de encerramento (sem hora — o domínio trabalha em datas, CONTEXT
+    // #3). Nula enquanto `ativa`; presente sse `encerrada` (check abaixo).
+    encerradaEm: date("encerrada_em"),
   },
   // Invariantes no banco (CONTEXT.md): enums fechados e a *forma* da DueRule
   // garantidas pelo Postgres, não só pelo use-case. Persistir fato íntegro.
   (t) => [
     check("bills_estado_check", sql`${t.estado} in ('ativa', 'encerrada')`),
+    // Estado e data de encerramento andam juntos: `ativa` não carrega data;
+    // `encerrada` exige a data (o histórico marca quando a projeção cessou).
+    check(
+      "bills_encerramento_check",
+      sql`(${t.estado} = 'encerrada') = (${t.encerradaEm} is not null)`,
+    ),
     check(
       "bills_due_rule_kind_check",
       sql`${t.dueRuleKind} in ('dia-fixo', 'n-esimo-dia-util', 'ultimo-dia-util')`,

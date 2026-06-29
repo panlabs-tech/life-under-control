@@ -51,6 +51,8 @@ export type Bill = DadosBill & {
   id: string
   householdId: string
   estado: BillEstado
+  /** Data civil (YYYY-MM-DD) em que a Conta foi encerrada; `null` enquanto `ativa`. */
+  encerradaEm: string | null
 }
 
 /** Entrada crua do cadastro (strings/números possivelmente inválidos da borda). */
@@ -231,4 +233,25 @@ export function descreverVencimento(dueRule: DueRule, dueMonthOffset: number): s
   if (dueMonthOffset > 0)
     return `${base} (competência +${dueMonthOffset} ${dueMonthOffset === 1 ? "mês" : "meses"})`
   return base
+}
+
+const DATA_ISO_RE = /^\d{4}-\d{2}-\d{2}$/
+
+/**
+ * É uma data civil ISO (`YYYY-MM-DD`) real? O domínio trabalha em datas civis,
+ * não timestamps (CONTEXT.md). Rejeita formato torto, mês fora de 1–12 e dia
+ * inexistente (29/02 em ano comum, 31 de mês curto) — round-trip por `Date.UTC`.
+ */
+export function ehDataIsoValida(s: string): boolean {
+  if (!DATA_ISO_RE.test(s)) return false
+  const [ano, mes, dia] = s.split("-").map(Number)
+  if (mes < 1 || mes > 12 || dia < 1 || dia > 31) return false
+  const d = new Date(Date.UTC(ano, mes - 1, dia))
+  return d.getUTCFullYear() === ano && d.getUTCMonth() === mes - 1 && d.getUTCDate() === dia
+}
+
+/** Formata uma data civil ISO em pt-BR (`2026-06-29` → `29/06/2026`). */
+export function formatarDataBr(iso: string): string {
+  const [ano, mes, dia] = iso.split("-")
+  return `${dia}/${mes}/${ano}`
 }

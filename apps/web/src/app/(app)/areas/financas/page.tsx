@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { drizzleBillRepo } from "@/adapters/db/bill-repo.drizzle"
 import { drizzleHouseholdRepo } from "@/adapters/db/household-repo.drizzle"
 import { AreaIcon } from "@/components/areas/AreaIcon"
@@ -13,9 +14,18 @@ export const dynamic = "force-dynamic"
 const financas = AREAS.find((a) => a.slug === "financas")
 
 /** Cockpit de Finanças (tema Pagamentos): lista as Contas do Lar + cadastro. */
-export default async function FinancasPage() {
+export default async function FinancasPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ encerradas?: string }>
+}) {
+  const { encerradas: param } = await searchParams
+  const mostrarEncerradas = param === "1"
+
   const { lar } = await getPainel(drizzleHouseholdRepo())
   const bills = await listBills(drizzleBillRepo(), lar.id)
+  const ativas = bills.filter((b) => b.estado === "ativa")
+  const encerradas = bills.filter((b) => b.estado === "encerrada")
 
   return (
     <div className="luc-page-gutter py-7 sm:py-9 lg:py-10">
@@ -35,17 +45,18 @@ export default async function FinancasPage() {
         <section className="flex flex-col gap-5">
           <div className="flex items-center justify-between gap-3">
             <p className="font-mono text-[11.5px] text-luc-text-3 uppercase tracking-[0.18em]">
-              Contas {bills.length > 0 && <span className="text-luc-faint">· {bills.length}</span>}
+              Contas{" "}
+              {ativas.length > 0 && <span className="text-luc-faint">· {ativas.length}</span>}
             </p>
             <Button href="/areas/financas/nova" variant="primary">
               Nova Conta
             </Button>
           </div>
 
-          {bills.length === 0 ? (
+          {ativas.length === 0 ? (
             <div className="flex flex-col items-start gap-4 rounded-luc-lg border border-luc-border border-dashed bg-luc-surface-1 p-8">
               <p className="text-luc-text-2 leading-relaxed">
-                Nenhuma Conta ainda. Cadastre a primeira regra de pagamento recorrente — a Conta
+                Nenhuma Conta ativa. Cadastre a primeira regra de pagamento recorrente — a Conta
                 guarda o <em>quando</em>, nunca o <em>quanto</em>.
               </p>
               <Button href="/areas/financas/nova" variant="ghost">
@@ -54,12 +65,36 @@ export default async function FinancasPage() {
             </div>
           ) : (
             <div className="flex flex-col gap-3">
-              {bills.map((bill) => (
+              {ativas.map((bill) => (
                 <BillCard key={bill.id} bill={bill} />
               ))}
             </div>
           )}
         </section>
+
+        {encerradas.length > 0 && (
+          <section className="flex flex-col gap-5">
+            <div className="flex items-center justify-between gap-3">
+              <p className="font-mono text-[11.5px] text-luc-text-3 uppercase tracking-[0.18em]">
+                Encerradas <span className="text-luc-faint">· {encerradas.length}</span>
+              </p>
+              <Link
+                href={mostrarEncerradas ? "/areas/financas" : "/areas/financas?encerradas=1"}
+                className="font-mono text-[11.5px] text-luc-accent uppercase tracking-[0.14em] hover:underline"
+              >
+                {mostrarEncerradas ? "Ocultar" : "Mostrar encerradas"}
+              </Link>
+            </div>
+
+            {mostrarEncerradas && (
+              <div className="flex flex-col gap-3">
+                {encerradas.map((bill) => (
+                  <BillCard key={bill.id} bill={bill} />
+                ))}
+              </div>
+            )}
+          </section>
+        )}
       </div>
     </div>
   )

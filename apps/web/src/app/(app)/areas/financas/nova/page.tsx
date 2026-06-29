@@ -1,5 +1,6 @@
+import { criarConta } from "@/app/(app)/areas/financas/actions"
 import { Button } from "@/components/ds/Button"
-import { BillWizard } from "@/components/financas/BillWizard"
+import { ConnectedBillForm } from "@/components/financas/ConnectedBillForm"
 
 /** Cadastro de uma Conta nova (wizard). A baixa de valor é outra história (#19). */
 export default function NovaContaPage() {
@@ -19,7 +20,7 @@ export default function NovaContaPage() {
           </p>
         </header>
 
-        <BillWizard />
+        <ConnectedBillForm action={criarConta} />
       </div>
     </div>
   )

@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest"
-import { type BillBruto, descreverRecorrencia, descreverVencimento, validarDadosBill } from "./bill"
+import {
+  type BillBruto,
+  descreverRecorrencia,
+  descreverVencimento,
+  ehDataIsoValida,
+  formatarDataBr,
+  validarDadosBill,
+} from "./bill"
 
 /** Seam 1: a regra pura de cadastro de Conta — sem banco, sem framework. */
 
@@ -175,5 +182,27 @@ describe("descreverVencimento (Seam 1)", () => {
     expect(descreverVencimento({ kind: "dia-fixo", day: 5 }, 2)).toBe(
       "Vence dia 5 (competência +2 meses)",
     )
+  })
+})
+
+describe("ehDataIsoValida (Seam 1)", () => {
+  it("test_data_civil_valida_passa", () => {
+    expect(ehDataIsoValida("2026-06-29")).toBe(true)
+  })
+  it("test_formato_torto_falha", () => {
+    expect(ehDataIsoValida("29/06/2026")).toBe(false)
+    expect(ehDataIsoValida("2026-6-9")).toBe(false)
+    expect(ehDataIsoValida("")).toBe(false)
+  })
+  it("test_dia_inexistente_falha", () => {
+    // 30/02 não existe; o round-trip por Date.UTC pega o overflow.
+    expect(ehDataIsoValida("2026-02-30")).toBe(false)
+    expect(ehDataIsoValida("2026-13-01")).toBe(false)
+  })
+})
+
+describe("formatarDataBr (Seam 1)", () => {
+  it("test_iso_vira_pt_br", () => {
+    expect(formatarDataBr("2026-06-29")).toBe("29/06/2026")
   })
 })

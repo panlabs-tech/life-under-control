@@ -1,0 +1,2 @@
+ALTER TABLE "bills" ADD COLUMN "encerrada_em" date;--> statement-breakpoint
+ALTER TABLE "bills" ADD CONSTRAINT "bills_encerramento_check" CHECK (("bills"."estado" = 'encerrada') = ("bills"."encerrada_em" is not null));

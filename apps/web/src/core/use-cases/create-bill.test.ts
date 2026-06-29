@@ -11,14 +11,30 @@ function fakeBillRepo(): BillRepo & { gravadas: NovaBill[] } {
     gravadas,
     async criarBill(nova) {
       gravadas.push(nova)
-      const bill: Bill = { id: `bill-${gravadas.length}`, estado: "ativa", ...nova }
+      const bill: Bill = {
+        id: `bill-${gravadas.length}`,
+        estado: "ativa",
+        encerradaEm: null,
+        ...nova,
+      }
       return bill
     },
     async listarBills(householdId) {
       return gravadas
         .filter((b) => b.householdId === householdId)
-        .map((nova, i) => ({ id: `bill-${i + 1}`, estado: "ativa" as const, ...nova }))
+        .map((nova, i) => ({
+          id: `bill-${i + 1}`,
+          estado: "ativa" as const,
+          encerradaEm: null,
+          ...nova,
+        }))
     },
+    // Ciclo de vida não exercitado aqui — coberto em bill-lifecycle.test.ts.
+    obterBill: () => Promise.reject(new Error("não usado")),
+    editarBill: () => Promise.reject(new Error("não usado")),
+    encerrarBill: () => Promise.reject(new Error("não usado")),
+    contarDependentes: () => Promise.reject(new Error("não usado")),
+    deletarBill: () => Promise.reject(new Error("não usado")),
   }
 }
 
