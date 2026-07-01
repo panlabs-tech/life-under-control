@@ -1,4 +1,4 @@
-import type { ReactNode } from "react"
+import type { ComponentProps, ReactNode } from "react"
 
 /** Selo compacto de estado. Cor sempre acompanha um rótulo textual. */
 export type PillTone = "neutral" | "muted" | "accent" | "success" | "warn" | "coming-soon"
@@ -16,15 +16,17 @@ export function Pill({
   tone = "neutral",
   children,
   className = "",
+  ...rest
 }: {
   tone?: PillTone
   children: ReactNode
   className?: string
-}) {
+} & Omit<ComponentProps<"span">, "children" | "className">) {
   return (
     <span
       data-tone={tone}
       className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-luc-sm border px-2 py-0.5 text-[11px] font-semibold ${TONES[tone]} ${className}`}
+      {...rest}
     >
       {children}
     </span>
