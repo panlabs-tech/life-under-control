@@ -117,7 +117,7 @@ describe("AppShell sidebar (Seam 3)", () => {
     expect(within(dialog).getByRole("link", { name: /Painel/ })).toHaveAttribute("href", "/painel")
     expect(within(dialog).getByRole("link", { name: /Finanças/ })).toHaveAttribute(
       "href",
-      "/areas/financas",
+      "/areas/financas/pagamentos-recorrentes",
     )
     expect(within(dialog).getByRole("link", { name: /Agenda/ })).toHaveAttribute("href", "/agenda")
   })

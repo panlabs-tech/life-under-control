@@ -7,7 +7,6 @@ import { drizzlePaymentRepo } from "@/adapters/db/payment-repo.drizzle"
 import { Button } from "@/components/ds/Button"
 import { BillCard } from "@/components/financas/BillCard"
 import { CockpitFinancas } from "@/components/financas/CockpitFinancas"
-import { AREAS } from "@/core/domain/areas"
 import {
   derivarAgregadosFinancas,
   serieTotalPago,
@@ -20,9 +19,7 @@ import { listBills } from "@/core/use-cases/list-bills"
 // Lê o banco a cada request: nada de prerender estático no build (sem DB lá).
 export const dynamic = "force-dynamic"
 
-const financas = AREAS.find((a) => a.slug === "financas")
-
-/** Cockpit de Finanças (tema Pagamentos): agregados do mês no topo (#22) + lista de Contas e cadastro. */
+/** Cockpit do Assunto Pagamentos Recorrentes: agregados do mês no topo (#22) + lista de Contas e cadastro. */
 export default async function FinancasPage({
   searchParams,
 }: {
@@ -61,7 +58,7 @@ export default async function FinancasPage({
   return (
     <div className="luc-page-gutter py-7 sm:py-9 lg:py-10">
       <div className="mx-auto flex max-w-[1120px] flex-col gap-6">
-        <h1 className="sr-only">{financas?.nome ?? "Finanças"} · Pagamentos</h1>
+        <h1 className="sr-only">Pagamentos Recorrentes</h1>
 
         {ativas.length > 0 && <CockpitFinancas agregados={agregados} serie={serie} />}
 
