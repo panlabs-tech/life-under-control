@@ -14,7 +14,7 @@ export function AreaCard({
   summary?: string
 }) {
   const emBreve = area.estado === "em-breve"
-  const supportingText = emBreve ? summary : metric
+  const supportingText = emBreve ? (summary ?? area.resumo) : (metric ?? area.resumo)
   return (
     <Link
       href={`/areas/${area.slug}`}
