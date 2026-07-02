@@ -134,6 +134,15 @@ export function mesCurto(competencia: string): string {
   return MESES_CURTOS[Number(competencia.slice(5, 7)) - 1]
 }
 
+/** Dias da semana pt-BR abreviados (índice 0 = domingo, como `Date#getUTCDay`). */
+export const DIAS_SEMANA_CURTOS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"]
+
+/** Dia da semana abreviado de uma data civil ISO (`2026-07-06` → `"seg"`). */
+export function diaDaSemanaAbreviado(iso: string): string {
+  const [ano, mes, dia] = iso.split("-").map(Number)
+  return DIAS_SEMANA_CURTOS[new Date(Date.UTC(ano, mes - 1, dia)).getUTCDay()]
+}
+
 /** Mês curto + ano de 2 dígitos ("2026-06" → "jun/26") — eixo de gráfico por competência. */
 export function mesAno(competencia: string): string {
   return `${mesCurto(competencia)}/${competencia.slice(2, 4)}`

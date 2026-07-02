@@ -4,6 +4,7 @@ import {
   descreverMesPorExtenso,
   descreverRecorrencia,
   descreverVencimento,
+  diaDaSemanaAbreviado,
   ehDataIsoValida,
   formatarDataBr,
   mesCurto,
@@ -223,5 +224,13 @@ describe("mesCurto (Seam 1)", () => {
     expect(mesCurto("2026-01")).toBe("jan")
     expect(mesCurto("2026-06")).toBe("jun")
     expect(mesCurto("2026-12")).toBe("dez")
+  })
+})
+
+describe("diaDaSemanaAbreviado (Seam 1)", () => {
+  it("test_data_iso_vira_dia_da_semana_abreviado_pt_br", () => {
+    expect(diaDaSemanaAbreviado("2026-07-06")).toBe("seg") // segunda-feira
+    expect(diaDaSemanaAbreviado("2026-07-10")).toBe("sex") // sexta-feira
+    expect(diaDaSemanaAbreviado("2026-07-12")).toBe("dom") // domingo
   })
 })
