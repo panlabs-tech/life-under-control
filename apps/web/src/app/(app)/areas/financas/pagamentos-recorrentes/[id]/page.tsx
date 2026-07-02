@@ -11,18 +11,23 @@ import { auth } from "@/auth"
 import { Button } from "@/components/ds/Button"
 import { MetricCard } from "@/components/ds/MetricCard"
 import { Pill } from "@/components/ds/Pill"
-import { Surface } from "@/components/ds/Surface"
 import { FAROL } from "@/components/financas/BillCard"
 import { BillLogoTile } from "@/components/financas/BillLogoTile"
 import { ConnectedPaymentForm } from "@/components/financas/ConnectedPaymentForm"
+import { DarBaixaSurface } from "@/components/financas/DarBaixaSurface"
 import { HistoriaConta } from "@/components/financas/HistoriaConta"
+import { LancamentoRegistradoToast } from "@/components/financas/LancamentoRegistradoToast"
 import { LancamentosLista } from "@/components/financas/LancamentosLista"
 import type { PaymentFormInicial } from "@/components/financas/payment-form-inicial"
 import type { Attachment } from "@/core/domain/attachment"
 import { descreverRecorrencia, descreverVencimento, formatarDataBr } from "@/core/domain/bill"
 import { centavosParaCampo, formatBRL } from "@/core/domain/money"
 import { descreverCompetencia, ehCompetenciaValida } from "@/core/domain/payment"
-import { derivarCardConta, resumoPagamentos } from "@/core/use-cases/derive-bill-card"
+import {
+  competenciaDefaultBaixaDoGrid,
+  derivarCardConta,
+  resumoPagamentos,
+} from "@/core/use-cases/derive-bill-card"
 import {
   farolDaOcorrencia,
   fraseDaOcorrencia,
@@ -50,10 +55,10 @@ export default async function ContaDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ competencia?: string }>
+  searchParams: Promise<{ competencia?: string; lancado?: string }>
 }) {
   const { id } = await params
-  const { competencia: compParam } = await searchParams
+  const { competencia: compParam, lancado: lancadoParam } = await searchParams
 
   // Dado o Lar, a Conta, seus Lançamentos e a sessão são independentes — em paralelo.
   const { lar } = await getPainel(drizzleHouseholdRepo())
@@ -68,19 +73,22 @@ export default async function ContaDetailPage({
   // Logo da Conta (#50): a URL assinada é presign local (sem rede).
   const logoUrl = await getLogoUrl(r2AttachmentStore(), bill.logoKey)
 
-  // Defaults da baixa: hoje (via Clock), a competência pedida (Agenda, #23) ou o
-  // mês corrente, o valor do último Lançamento e a Pessoa logada como autor.
   const hoje = systemClock().hoje()
-  const competencia = ehCompetenciaValida(compParam ?? "")
-    ? (compParam as string)
-    : hoje.slice(0, 7)
-  const ultimo = lancamentos[0]
 
   // Card derivado (#21/#59): a leitura (Instrumentos/História) vale pra Conta
   // encerrada também — é histórico, não muda com o fim da Conta. Só o "vigente"
   // (pílula/leitura longa, que projetam o "quando" do PRÓXIMO vencimento) é
   // exclusivo de Conta ativa; encerrada não tem um vencimento por vir.
   const card = derivarCardConta(systemClock(), nationalBankCalendar(), bill, lancamentos)
+
+  // Defaults da baixa: hoje (via Clock), a competência pedida por um ponto de
+  // entrada (#23/#56/#63) ou — sem pedido — a ocorrência em aberto mais antiga
+  // do grid já derivado acima (a Internet atrasada de junho baixa em junho,
+  // não em julho); o valor do último Lançamento e a Pessoa logada como autor.
+  const competencia = ehCompetenciaValida(compParam ?? "")
+    ? (compParam as string)
+    : competenciaDefaultBaixaDoGrid(card.grid)
+  const ultimo = lancamentos[0]
   // Encerrada não projeta ocorrência além do próprio fechamento — recorta o grid
   // no `encerradaEm` pra não fingir "em aberto" competência depois que a Conta
   // parou de existir (a mesma lógica de `competenciasEsperadas` em #48/#55).
@@ -126,8 +134,15 @@ export default async function ContaDetailPage({
       lancamentos.map((p) => p.id),
     )
 
+  const lancadoValido = ehCompetenciaValida(lancadoParam ?? "") ? (lancadoParam as string) : null
+
   return (
     <div className="luc-page-gutter py-7 lg:py-7">
+      {lancadoValido && (
+        <LancamentoRegistradoToast
+          mensagem={`Lançamento registrado — ${bill.nome} · ${descreverCompetencia(lancadoValido, bill.recurrence)}`}
+        />
+      )}
       <div className="mx-auto flex max-w-[820px] flex-col gap-6">
         <header className="flex flex-col gap-4 rounded-[14px] border border-luc-border bg-luc-surface-2 p-5">
           <Button
@@ -217,18 +232,20 @@ export default async function ContaDetailPage({
           <HistoriaConta grid={gridRelevante} />
         </section>
 
-        <Surface id="dar-baixa" className="flex scroll-mt-6 flex-col gap-5 p-5 sm:p-6">
-          <h2 className="text-sm font-bold text-luc-text-strong">Dar baixa</h2>
+        <DarBaixaSurface
+          abrirPorDefault={Boolean(compParam)}
+          competenciaLabel={descreverCompetencia(competencia, bill.recurrence)}
+        >
           {/* key pela contagem: depois de uma baixa o detalhe revalida e a
               contagem muda → o formulário remonta limpo (não retém os valores). */}
           <ConnectedPaymentForm
             key={`baixa-${lancamentos.length}`}
             action={criarLancamento.bind(null, bill.id)}
-            pessoas={lar.pessoas}
+            pessoas={pessoasComAvatar}
             inicial={inicialBaixa}
             competenciasComLancamento={competenciasComLancamento}
           />
-        </Surface>
+        </DarBaixaSurface>
 
         <section className="flex flex-col gap-5">
           <h2 className="text-sm font-bold text-luc-text-strong">

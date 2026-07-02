@@ -4,6 +4,7 @@ import type { Payment } from "@/core/domain/payment"
 import type { Clock } from "@/core/ports/clock"
 import { fakeCalendar } from "./calendar.fake"
 import {
+  competenciaDefaultBaixa,
   derivarCardConta,
   farolDoMes,
   gridOcorrencias,
@@ -224,5 +225,45 @@ describe("derivarCardConta (Seam 1)", () => {
     expect(card.vencimentoVigente).toBe("2026-03-08")
     expect(card.media).toBe(90000)
     expect(card.grid).toHaveLength(OCORRENCIAS_NA_JANELA)
+  })
+})
+
+describe("competenciaDefaultBaixa (Seam 1, #63)", () => {
+  const cal = fakeCalendar()
+
+  /** Lançamentos em dia (dia 05, antes do vencimento dia-fixo 10) para cada competência. */
+  function pagamentosEmDia(competencias: string[]): Payment[] {
+    return competencias.map((competencia, i) =>
+      pagamento({ id: `p-${i}`, competencia, dataPagamento: `${competencia}-05` }),
+    )
+  }
+
+  it("test_competencia_default_mais_antiga_em_aberto", () => {
+    // toda a janela (12 meses) em dia, exceto maio — o buraco mais antigo do
+    // grid. Junho (vigente) também está em aberto (hoje já passou do dia 10),
+    // mas a baixa mira maio: a mais antiga, não a mais recente.
+    const bill = billBase()
+    const pagas = ocorrenciasRecentes(bill.recurrence, "2026-04", 10) // 2025-07 .. 2026-04
+    const competencia = competenciaDefaultBaixa(
+      clock("2026-06-15"),
+      cal,
+      bill,
+      pagamentosEmDia(pagas),
+    )
+    expect(competencia).toBe("2026-05")
+  })
+
+  it("test_sem_nenhuma_em_aberto_cai_na_vigente", () => {
+    // toda a janela em dia até maio; junho (vigente) ainda nem venceu — sem
+    // buraco, a baixa mira o mês vigente.
+    const bill = billBase()
+    const pagas = ocorrenciasRecentes(bill.recurrence, "2026-05", 11) // 2025-07 .. 2026-05
+    const competencia = competenciaDefaultBaixa(
+      clock("2026-06-05"),
+      cal,
+      bill,
+      pagamentosEmDia(pagas),
+    )
+    expect(competencia).toBe("2026-06")
   })
 })

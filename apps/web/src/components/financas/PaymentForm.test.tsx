@@ -14,8 +14,24 @@ import { type PaymentFormInicial, paymentParaInicial } from "./payment-form-inic
  */
 const noop = () => {}
 const PESSOAS = [
-  { id: "p-1", nome: "Thiago" },
-  { id: "p-2", nome: "Jakeline" },
+  {
+    id: "p-1",
+    nome: "Thiago",
+    email: "thiago@x.com",
+    hue: 210,
+    inicial: "T",
+    avatarKey: null,
+    avatarUrl: null,
+  },
+  {
+    id: "p-2",
+    nome: "Jakeline",
+    email: "jakeline@x.com",
+    hue: 320,
+    inicial: "J",
+    avatarKey: null,
+    avatarUrl: null,
+  },
 ]
 
 function inicial(over: Partial<PaymentFormInicial> = {}): PaymentFormInicial {
@@ -73,7 +89,27 @@ describe("PaymentForm — pré-preenchimento (Seam 3)", () => {
 
   it("test_quem_pagou_default_a_logada", () => {
     render(<PaymentForm formAction={noop} pessoas={PESSOAS} inicial={inicial({ paidBy: "p-2" })} />)
-    expect(screen.getByLabelText("Quem pagou")).toHaveValue("p-2")
+    expect(screen.getByRole("button", { name: "Jakeline" })).toHaveAttribute("aria-pressed", "true")
+    expect(screen.getByRole("button", { name: "Thiago" })).toHaveAttribute("aria-pressed", "false")
+  })
+})
+
+describe("PaymentForm — chips-toggle de Quem pagou (Seam 3, #63)", () => {
+  it("test_chips_tem_aria_pressed_por_pessoa", () => {
+    render(<PaymentForm formAction={noop} pessoas={PESSOAS} inicial={inicial({ paidBy: "p-1" })} />)
+    expect(screen.getByRole("button", { name: "Thiago" })).toHaveAttribute("aria-pressed", "true")
+    expect(screen.getByRole("button", { name: "Jakeline" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    )
+  })
+
+  it("test_clicar_chip_troca_quem_pagou", async () => {
+    const user = userEvent.setup()
+    render(<PaymentForm formAction={noop} pessoas={PESSOAS} inicial={inicial({ paidBy: "p-1" })} />)
+    await user.click(screen.getByRole("button", { name: "Jakeline" }))
+    expect(screen.getByRole("button", { name: "Jakeline" })).toHaveAttribute("aria-pressed", "true")
+    expect(screen.getByRole("button", { name: "Thiago" })).toHaveAttribute("aria-pressed", "false")
   })
 })
 
@@ -102,18 +138,70 @@ describe("PaymentForm — aviso de competência repetida (Seam 3)", () => {
     expect(screen.queryByRole("status")).toBeNull()
   })
 
-  it("test_aviso_nao_trava_a_submissao", () => {
+  it("test_segunda_baixa_mesma_competencia_gera_aviso", async () => {
+    // não é bloqueio rígido: o 1º clique arma a confirmação (não submete);
+    // só "Confirmar" registra.
+    const formAction = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <PaymentForm
+        formAction={formAction}
+        pessoas={PESSOAS}
+        inicial={inicial({ competencia: "2026-06" })}
+        competenciasComLancamento={["2026-06"]}
+      />,
+    )
+    expect(screen.getByRole("status")).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "Dar baixa" }))
+    expect(formAction).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole("button", { name: "Confirmar" }))
+    expect(formAction).toHaveBeenCalledOnce()
+  })
+
+  it("test_cancelar_aviso_nao_registra", async () => {
+    const formAction = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <PaymentForm
+        formAction={formAction}
+        pessoas={PESSOAS}
+        inicial={inicial({ competencia: "2026-06" })}
+        competenciasComLancamento={["2026-06"]}
+      />,
+    )
+
+    await user.click(screen.getByRole("button", { name: "Dar baixa" }))
+    await user.click(screen.getByRole("button", { name: "Voltar" }))
+
+    expect(formAction).not.toHaveBeenCalled()
+    expect(screen.getByRole("button", { name: "Dar baixa" })).toBeInTheDocument()
+  })
+
+  it("test_edicao_com_aviso_nao_duplica_o_cancelar", async () => {
+    // em edição (onCancelar presente) + competência duplicada armada: o
+    // "Cancelar" de sair da edição e o "Voltar" de desarmar não podem ter o
+    // mesmo nome acessível.
+    const user = userEvent.setup()
+    const onCancelar = vi.fn()
     render(
       <PaymentForm
         formAction={noop}
         pessoas={PESSOAS}
         inicial={inicial({ competencia: "2026-06" })}
         competenciasComLancamento={["2026-06"]}
+        onCancelar={onCancelar}
       />,
     )
-    // o aviso aparece, mas o botão de submeter continua habilitado (não bloqueia)
-    expect(screen.getByRole("status")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Dar baixa" })).toBeEnabled()
+
+    await user.click(screen.getByRole("button", { name: "Dar baixa" }))
+
+    expect(screen.getAllByRole("button", { name: "Cancelar" })).toHaveLength(1)
+    expect(screen.getByRole("button", { name: "Voltar" })).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "Cancelar" }))
+    expect(onCancelar).toHaveBeenCalledOnce()
   })
 
   it("test_aviso_some_ao_trocar_para_competencia_inedita", () => {

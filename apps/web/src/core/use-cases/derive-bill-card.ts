@@ -256,6 +256,30 @@ export function resumoPagamentos(grid: GridCelula[]): {
 }
 
 /**
+ * Competência default da baixa (#63) a partir de um grid já derivado: a
+ * ocorrência em aberto mais antiga — a Internet atrasada de junho baixa em
+ * junho, não em julho (pagamento fora de ordem preserva a Competência certa).
+ * Sem nenhuma em aberto, cai na ocorrência vigente (a última do grid). Só o
+ * default; o campo é editável. Recebe o grid pronto (não recalcula) para a
+ * borda reaproveitar o mesmo `derivarCardConta` de uma chamada só.
+ */
+export function competenciaDefaultBaixaDoGrid(grid: GridCelula[]): string {
+  const emAberto = grid.find((celula) => celula.estado === "em-aberto")
+  return (emAberto ?? grid[grid.length - 1]).competencia
+}
+
+/** Como `competenciaDefaultBaixaDoGrid`, mas deriva o grid a partir do `Clock`/`Calendar`. */
+export function competenciaDefaultBaixa(
+  clock: Clock,
+  calendar: Calendar,
+  bill: Bill,
+  payments: Payment[],
+): string {
+  const grid = gridOcorrencias(bill, payments, clock.hoje(), calendar)
+  return competenciaDefaultBaixaDoGrid(grid)
+}
+
+/**
  * Compõe o card inteiro da Conta a partir do `Clock` e do `Calendar` (os ports) e
  * dos fatos (a Conta e seus Lançamentos). A borda injeta os adapters reais; o
  * Seam 1 injeta os fakes.

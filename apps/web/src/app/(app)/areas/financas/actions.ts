@@ -176,9 +176,9 @@ function rotaDaConta(billId: string): string {
 }
 
 /** Cauda comum das mutações de Lançamento: revalida o detalhe da Conta e volta a ele. */
-function voltarParaConta(billId: string): never {
+function voltarParaConta(billId: string, query?: string): never {
   revalidatePath(rotaDaConta(billId))
-  redirect(rotaDaConta(billId))
+  redirect(query ? `${rotaDaConta(billId)}?${query}` : rotaDaConta(billId))
 }
 
 /** Traduz o FormData da baixa num `PaymentBruto` cru — valor já em centavos (parse BR). */
@@ -213,7 +213,9 @@ export async function criarLancamento(
     throw e
   }
 
-  voltarParaConta(billId)
+  // `lancado` avisa o cliente do sucesso pra ele mostrar o toast (#63) — o
+  // redirect é a única ponte entre a mutação no servidor e a UI depois dela.
+  voltarParaConta(billId, `lancado=${encodeURIComponent(bruto.competencia)}`)
 }
 
 /**
