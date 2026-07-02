@@ -4,6 +4,7 @@ import { useActionState } from "react"
 import type { PaymentFormState } from "@/app/(app)/areas/financas/actions"
 import { PaymentForm } from "@/components/financas/PaymentForm"
 import type { PaymentFormInicial } from "@/components/financas/payment-form-inicial"
+import type { PessoaComAvatar } from "@/core/use-cases/resolve-avatares"
 
 /**
  * Liga o `PaymentForm` a um server action via `useActionState` (borda fina) — a
@@ -22,7 +23,7 @@ export function ConnectedPaymentForm({
   onCancelar,
 }: {
   action: (prev: PaymentFormState, formData: FormData) => Promise<PaymentFormState>
-  pessoas: { id: string; nome: string }[]
+  pessoas: PessoaComAvatar[]
   inicial: PaymentFormInicial
   competenciasComLancamento?: string[]
   submitLabel?: string

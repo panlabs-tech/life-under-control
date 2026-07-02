@@ -2,9 +2,11 @@
 
 import { useId, useState } from "react"
 import { Button } from "@/components/ds/Button"
-import { Field, getFieldError, inputClass } from "@/components/ds/FormField"
+import { Field, FieldError, getFieldError, inputClass } from "@/components/ds/FormField"
+import { PersonChip } from "@/components/ds/PersonChip"
 import type { PaymentFormInicial } from "@/components/financas/payment-form-inicial"
 import type { ErroCampo } from "@/core/domain/bill"
+import type { PessoaComAvatar } from "@/core/use-cases/resolve-avatares"
 
 /**
  * Formulário de baixa de Lançamento (borda fina — Seam 3). Coleta valor, data de
@@ -29,7 +31,7 @@ export function PaymentForm({
   onCancelar,
 }: {
   formAction: (formData: FormData) => void
-  pessoas: { id: string; nome: string }[]
+  pessoas: PessoaComAvatar[]
   inicial: PaymentFormInicial
   /** Competências da Conta que já têm Lançamento — base do aviso de duplicidade. */
   competenciasComLancamento?: string[]
@@ -43,12 +45,20 @@ export function PaymentForm({
   const [dataPagamento, setDataPagamento] = useState(inicial.dataPagamento)
   const [competencia, setCompetencia] = useState(inicial.competencia)
   const [paidBy, setPaidBy] = useState(inicial.paidBy)
+  // Confirmação em dois tempos da competência duplicada (Seam 3, #63): o 1º
+  // clique arma, sem submeter; só "Confirmar" registra, "Cancelar" desarma.
+  const [confirmando, setConfirmando] = useState(false)
   const formId = useId()
 
   const erroDe = (campo: string) => getFieldError(erros, campo)
 
   // Aviso (não trava): já existe um Lançamento naquela competência?
   const avisaCompetencia = competencia !== "" && competenciasComLancamento.includes(competencia)
+
+  function mudarCompetencia(novaCompetencia: string) {
+    setCompetencia(novaCompetencia)
+    setConfirmando(false)
+  }
 
   return (
     <form action={formAction} className="flex flex-col gap-5" aria-busy={pending}>
@@ -74,14 +84,14 @@ export function PaymentForm({
           name="competencia"
           type="month"
           value={competencia}
-          onChange={(e) => setCompetencia(e.target.value)}
+          onChange={(e) => mudarCompetencia(e.target.value)}
           className={inputClass}
           aria-invalid={Boolean(erroDe("competencia"))}
           aria-describedby={erroDe("competencia") ? `${formId}-competencia-error` : undefined}
         />
         {avisaCompetencia && (
           <p role="status" className="text-luc-warn text-sm leading-snug">
-            Já existe um Lançamento nesta competência. Pode registrar mesmo assim.
+            Já existe um Lançamento nesta competência — confirme para registrar mesmo assim.
           </p>
         )}
       </Field>
@@ -99,23 +109,42 @@ export function PaymentForm({
         />
       </Field>
 
-      <Field label="Quem pagou" htmlFor={`${formId}-paidBy`} error={erroDe("paidBy")}>
-        <select
-          id={`${formId}-paidBy`}
-          name="paidBy"
-          value={paidBy}
-          onChange={(e) => setPaidBy(e.target.value)}
-          className={inputClass}
-          aria-invalid={Boolean(erroDe("paidBy"))}
-          aria-describedby={erroDe("paidBy") ? `${formId}-paidBy-error` : undefined}
-        >
-          {pessoas.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.nome}
-            </option>
-          ))}
-        </select>
-      </Field>
+      {(() => {
+        const paidByErro = erroDe("paidBy")
+        const erroId = paidByErro ? `${formId}-paidBy-error` : undefined
+        return (
+          // Grupo de chips-toggle, não um único controle — `<fieldset>`/`<legend>`
+          // (não `<label htmlFor>`, que só serve um controle focável) mantém o
+          // rótulo e o erro associados a cada botão do grupo.
+          <fieldset
+            className="m-0 flex min-w-0 flex-col gap-1.5 border-0 p-0"
+            aria-invalid={Boolean(paidByErro)}
+            aria-describedby={erroId}
+          >
+            <legend className="p-0 text-[11.5px] font-semibold text-luc-text-3">Quem pagou</legend>
+            <input type="hidden" name="paidBy" value={paidBy} />
+            <div className="flex flex-wrap gap-2">
+              {pessoas.map((p) => {
+                const pressionado = paidBy === p.id
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    aria-pressed={pressionado}
+                    onClick={() => setPaidBy(p.id)}
+                    className={`rounded-luc-lg outline-none transition-[box-shadow] duration-150 focus-visible:ring-2 focus-visible:ring-luc-accent focus-visible:ring-offset-2 focus-visible:ring-offset-luc-bg ${
+                      pressionado ? "ring-2 ring-luc-accent" : "opacity-60 hover:opacity-100"
+                    }`}
+                  >
+                    <PersonChip pessoa={p} />
+                  </button>
+                )
+              })}
+            </div>
+            {paidByErro && <FieldError id={erroId}>{paidByErro}</FieldError>}
+          </fieldset>
+        )
+      })()}
 
       <div className="flex items-center justify-end gap-3 pt-1">
         {onCancelar && (
@@ -123,9 +152,29 @@ export function PaymentForm({
             Cancelar
           </Button>
         )}
-        <Button variant="primary" type="submit" disabled={pending}>
-          {pending ? submittingLabel : submitLabel}
-        </Button>
+        {avisaCompetencia && !confirmando && (
+          <Button variant="primary" type="button" onClick={() => setConfirmando(true)}>
+            {submitLabel}
+          </Button>
+        )}
+        {avisaCompetencia && confirmando && (
+          <>
+            {/* "Voltar" (desarma a confirmação), nunca "Cancelar" — evitar dois
+                botões com o mesmo nome acessível quando `onCancelar` (edição)
+                também está presente e faz uma coisa bem diferente (sai do form). */}
+            <Button variant="secondary" type="button" onClick={() => setConfirmando(false)}>
+              Voltar
+            </Button>
+            <Button variant="primary" type="submit" disabled={pending}>
+              {pending ? submittingLabel : "Confirmar"}
+            </Button>
+          </>
+        )}
+        {!avisaCompetencia && (
+          <Button variant="primary" type="submit" disabled={pending}>
+            {pending ? submittingLabel : submitLabel}
+          </Button>
+        )}
       </div>
     </form>
   )
