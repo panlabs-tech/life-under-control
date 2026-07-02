@@ -7,17 +7,19 @@ import { r2AttachmentStore } from "@/adapters/r2/r2-attachment-store"
 import { Button } from "@/components/ds/Button"
 import { PageHeader } from "@/components/ds/PageHeader"
 import { SectionHeading } from "@/components/ds/SectionHeading"
-import { BillCard } from "@/components/financas/BillCard"
 import { CockpitFinancas } from "@/components/financas/CockpitFinancas"
 import { EncerradasSection } from "@/components/financas/EncerradasSection"
+import { LinhaConta } from "@/components/financas/LinhaConta"
 import { gastoMensalMedio } from "@/core/use-cases/derive-agregados-financas"
-import { derivarCardConta, mesDe } from "@/core/use-cases/derive-bill-card"
+import { mesDe } from "@/core/use-cases/derive-bill-card"
 import { derivarFormaCompetencia } from "@/core/use-cases/derive-forma-competencia"
+import { derivarLinhasContas } from "@/core/use-cases/derive-linha-conta"
 import { calcularPontualidade12m } from "@/core/use-cases/derive-pontualidade"
 import { getLogoUrl } from "@/core/use-cases/get-logo-url"
 import { getPainel } from "@/core/use-cases/get-painel"
 import { listAllPayments } from "@/core/use-cases/list-all-payments"
 import { listBills } from "@/core/use-cases/list-bills"
+import { resolveAvatares } from "@/core/use-cases/resolve-avatares"
 
 // Lê o banco a cada request: nada de prerender estático no build (sem DB lá).
 export const dynamic = "force-dynamic"
@@ -61,17 +63,10 @@ export default async function FinancasPage() {
     ),
   )
 
-  const cards = new Map(
-    ativas.map((bill) => [
-      bill.id,
-      derivarCardConta(
-        systemClock(),
-        nationalBankCalendar(),
-        bill,
-        pagamentos.filter((payment) => payment.billId === bill.id),
-      ),
-    ]),
-  )
+  // Linha híbrida (#56): urgência + grid + valor estado-dependente, já ordenada.
+  const linhas = derivarLinhasContas(systemClock(), nationalBankCalendar(), ativas, pagamentos)
+  const pessoasComAvatar = await resolveAvatares(lar.pessoas, store)
+  const billsPorId = new Map(ativas.map((bill) => [bill.id, bill]))
 
   return (
     <div className="luc-page-gutter py-7 sm:py-9 lg:py-10">
@@ -122,16 +117,22 @@ export default async function FinancasPage() {
               </Button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-              {ativas.map((bill) => (
-                <BillCard
-                  key={bill.id}
-                  bill={bill}
-                  card={cards.get(bill.id)}
-                  logoUrl={logoUrls.get(bill.id)}
-                />
-              ))}
-            </div>
+            <ul className="flex flex-col gap-2">
+              {linhas.map((linha) => {
+                const bill = billsPorId.get(linha.billId)
+                if (!bill) return null
+                return (
+                  <LinhaConta
+                    key={linha.billId}
+                    bill={bill}
+                    linha={linha}
+                    logoUrl={logoUrls.get(bill.id)}
+                    pessoas={pessoasComAvatar}
+                    lancamentos={pagamentos.filter((payment) => payment.billId === bill.id)}
+                  />
+                )
+              })}
+            </ul>
           )}
         </section>
 
