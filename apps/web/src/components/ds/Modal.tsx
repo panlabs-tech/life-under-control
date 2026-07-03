@@ -12,6 +12,8 @@ export function Modal({
   title,
   eyebrow,
   description,
+  descriptionMono = false,
+  icon,
   closeHref,
   children,
   width = "wide",
@@ -19,9 +21,14 @@ export function Modal({
   title: string
   eyebrow?: string
   description?: string
+  /** Contexto em mono (ex.: "competência · vencimento") — modal compacto (Final, #87). */
+  descriptionMono?: boolean
+  /** Chip 28×28 antes do título — hoje só o ícone da Conta no modal compacto. */
+  icon?: ReactNode
   closeHref: string
   children: ReactNode
-  width?: "wide" | "compact"
+  /** "narrow": 400px + entrada luc-modal-pop + padding 18px — hoje só o modal de Registrar pagamento (Final, #87). */
+  width?: "wide" | "compact" | "narrow"
 }) {
   const router = useRouter()
   const dialogRef = useRef<HTMLDivElement>(null)
@@ -80,25 +87,36 @@ export function Modal({
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
-        className={`relative flex h-dvh w-full flex-col overflow-hidden border-luc-border-strong bg-luc-surface-3 shadow-[0_32px_100px_rgba(0,0,0,.72)] [animation:luc-modal-enter_180ms_ease-out] sm:h-auto sm:max-h-[min(90dvh,820px)] sm:rounded-luc-xl sm:border ${width === "compact" ? "sm:max-w-[620px]" : "sm:max-w-[760px]"}`}
+        className={`relative flex h-dvh w-full flex-col overflow-hidden border-luc-border-strong bg-luc-surface-3 shadow-[0_32px_100px_rgba(0,0,0,.72)] sm:h-auto sm:max-h-[min(90dvh,820px)] sm:rounded-luc-xl sm:border ${
+          width === "narrow"
+            ? "sm:max-w-[400px] [animation:luc-modal-pop_200ms_ease-out]"
+            : width === "compact"
+              ? "sm:max-w-[620px] [animation:luc-modal-enter_180ms_ease-out]"
+              : "sm:max-w-[760px] [animation:luc-modal-enter_180ms_ease-out]"
+        }`}
       >
-        <header className="flex shrink-0 items-start gap-4 border-luc-border border-b px-5 py-4 sm:px-6 sm:py-5">
+        <header
+          className={`flex shrink-0 items-start gap-4 border-luc-border border-b px-5 py-4 ${width === "narrow" ? "sm:p-[18px]" : "sm:px-6 sm:py-5"}`}
+        >
           <div className="min-w-0 flex-1">
             {eyebrow && (
               <p className="font-mono text-[9.5px] uppercase tracking-[0.16em] text-luc-accent">
                 {eyebrow}
               </p>
             )}
-            <h1
-              id={titleId}
-              className="mt-1 text-xl font-extrabold tracking-[-0.025em] text-luc-text sm:text-2xl"
-            >
-              {title}
-            </h1>
+            <div className="mt-1 flex items-center gap-2.5">
+              {icon}
+              <h1
+                id={titleId}
+                className="text-xl font-extrabold tracking-[-0.025em] text-luc-text sm:text-2xl"
+              >
+                {title}
+              </h1>
+            </div>
             {description && (
               <p
                 id={descriptionId}
-                className="mt-1 max-w-[58ch] text-[12px] leading-relaxed text-luc-text-3"
+                className={`mt-1 max-w-[58ch] leading-relaxed text-luc-text-3 ${descriptionMono ? "font-mono text-[11px]" : "text-[12px]"}`}
               >
                 {description}
               </p>
@@ -114,7 +132,9 @@ export function Modal({
             <X aria-hidden size={19} />
           </button>
         </header>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6 sm:py-6">
+        <div
+          className={`min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 ${width === "narrow" ? "sm:p-[18px]" : "sm:px-6 sm:py-6"}`}
+        >
           {children}
         </div>
       </div>

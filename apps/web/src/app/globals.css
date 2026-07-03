@@ -11,6 +11,15 @@
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+/* Entrada do modal compacto (Final, #87): "pop" com leve overshoot (passa de
+   100% antes de assentar), sem o deslocamento vertical do luc-modal-enter —
+   o painel é pequeno o bastante pra não precisar de trajetória, só de ênfase. */
+@keyframes luc-modal-pop {
+  from { opacity: 0; transform: scale(.92); }
+  60% { opacity: 1; transform: scale(1.02); }
+  to { transform: scale(1); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   [class*="luc-modal-"] { animation: none !important; }
 }

@@ -224,6 +224,7 @@ export default async function FinancasPage({
           key={`registro-${billRegistrar.id}-${lancamentosRegistrar.length}`}
           billId={billRegistrar.id}
           billName={billRegistrar.nome}
+          billIcon={billRegistrar.icon}
           action={criarLancamento.bind(null, billRegistrar.id)}
           pessoas={pessoasComAvatar}
           inicial={{

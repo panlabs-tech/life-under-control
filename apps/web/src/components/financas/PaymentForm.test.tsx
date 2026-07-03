@@ -313,3 +313,42 @@ describe("PaymentForm — modo compacto do modal (Final)", () => {
     expect(screen.queryByText("Comprovantes")).not.toBeInTheDocument()
   })
 })
+
+describe("PaymentForm — restyle do modal compacto (Final, #87)", () => {
+  it("test_valor_pago_com_prefixo_rs", () => {
+    render(
+      <PaymentForm formAction={noop} pessoas={PESSOAS} inicial={inicial()} competenciaOculta />,
+    )
+    expect(screen.getByLabelText("Valor pago")).toHaveValue("129,90")
+    expect(screen.getByText("R$")).toBeInTheDocument()
+  })
+
+  it("test_label_valor_padrao_fora_do_compacto", () => {
+    render(<PaymentForm formAction={noop} pessoas={PESSOAS} inicial={inicial()} />)
+    expect(screen.getByLabelText("Valor")).toBeInTheDocument()
+    expect(screen.queryByText("R$")).not.toBeInTheDocument()
+  })
+
+  it("test_pago_por_dois_botoes_estilo_prototipo", () => {
+    render(
+      <PaymentForm
+        formAction={noop}
+        pessoas={PESSOAS}
+        inicial={inicial({ paidBy: "p-1" })}
+        competenciaOculta
+      />,
+    )
+    expect(screen.getByText("Pago por")).toBeInTheDocument()
+    const selecionado = screen.getByRole("button", { name: "Thiago" })
+    const naoSelecionado = screen.getByRole("button", { name: "Jakeline" })
+    expect(selecionado.className).toContain("border-luc-accent")
+    expect(selecionado.className).toContain("bg-luc-accent-06")
+    expect(naoSelecionado.className).not.toContain("bg-luc-accent-06")
+  })
+
+  it("test_quem_pagou_mantem_rotulo_e_estilo_fora_do_compacto", () => {
+    render(<PaymentForm formAction={noop} pessoas={PESSOAS} inicial={inicial()} />)
+    expect(screen.getByText("Quem pagou")).toBeInTheDocument()
+    expect(screen.queryByText("Pago por")).not.toBeInTheDocument()
+  })
+})

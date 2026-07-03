@@ -86,20 +86,45 @@ export function PaymentForm({
 
   return (
     <form action={formAction} className="flex flex-col gap-5" aria-busy={pending}>
-      <Field label="Valor" htmlFor={`${formId}-valor`} error={erroDe("valor")}>
-        <input
-          id={`${formId}-valor`}
-          name="valor"
-          type="text"
-          inputMode="decimal"
-          autoComplete="off"
-          placeholder="0,00"
-          value={valor}
-          onChange={(e) => setValor(e.target.value)}
-          className={inputClass}
-          aria-invalid={Boolean(erroDe("valor"))}
-          aria-describedby={erroDe("valor") ? `${formId}-valor-error` : undefined}
-        />
+      <Field
+        label={competenciaOculta ? "Valor pago" : "Valor"}
+        htmlFor={`${formId}-valor`}
+        error={erroDe("valor")}
+      >
+        {competenciaOculta ? (
+          <div className="relative">
+            <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 font-mono text-[12px] text-luc-muted">
+              R$
+            </span>
+            <input
+              id={`${formId}-valor`}
+              name="valor"
+              type="text"
+              inputMode="decimal"
+              autoComplete="off"
+              placeholder="0,00"
+              value={valor}
+              onChange={(e) => setValor(e.target.value)}
+              className={`${inputClass} pl-10 text-right font-mono`}
+              aria-invalid={Boolean(erroDe("valor"))}
+              aria-describedby={erroDe("valor") ? `${formId}-valor-error` : undefined}
+            />
+          </div>
+        ) : (
+          <input
+            id={`${formId}-valor`}
+            name="valor"
+            type="text"
+            inputMode="decimal"
+            autoComplete="off"
+            placeholder="0,00"
+            value={valor}
+            onChange={(e) => setValor(e.target.value)}
+            className={inputClass}
+            aria-invalid={Boolean(erroDe("valor"))}
+            aria-describedby={erroDe("valor") ? `${formId}-valor-error` : undefined}
+          />
+        )}
         {notaValor && <p className="text-[10.5px] text-luc-faint leading-snug">{notaValor}</p>}
       </Field>
 
@@ -157,9 +182,11 @@ export function PaymentForm({
             aria-invalid={Boolean(paidByErro)}
             aria-describedby={erroId}
           >
-            <legend className="p-0 text-[11.5px] font-semibold text-luc-text-3">Quem pagou</legend>
+            <legend className="p-0 text-[11.5px] font-semibold text-luc-text-3">
+              {competenciaOculta ? "Pago por" : "Quem pagou"}
+            </legend>
             <input type="hidden" name="paidBy" value={paidBy} />
-            <div className="flex flex-wrap gap-2">
+            <div className={competenciaOculta ? "grid grid-cols-2 gap-2" : "flex flex-wrap gap-2"}>
               {pessoas.map((p) => {
                 const pressionado = paidBy === p.id
                 return (
@@ -168,9 +195,17 @@ export function PaymentForm({
                     type="button"
                     aria-pressed={pressionado}
                     onClick={() => setPaidBy(p.id)}
-                    className={`rounded-luc-lg outline-none transition-[box-shadow] duration-150 focus-visible:ring-2 focus-visible:ring-luc-accent focus-visible:ring-offset-2 focus-visible:ring-offset-luc-bg ${
-                      pressionado ? "ring-2 ring-luc-accent" : "opacity-60 hover:opacity-100"
-                    }`}
+                    className={
+                      competenciaOculta
+                        ? `rounded-luc-md border p-2.5 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-luc-accent focus-visible:ring-offset-2 focus-visible:ring-offset-luc-bg ${
+                            pressionado
+                              ? "border-luc-accent bg-luc-accent-06"
+                              : "border-luc-border bg-luc-surface-2 hover:border-luc-border-strong"
+                          }`
+                        : `rounded-luc-lg outline-none transition-[box-shadow] duration-150 focus-visible:ring-2 focus-visible:ring-luc-accent focus-visible:ring-offset-2 focus-visible:ring-offset-luc-bg ${
+                            pressionado ? "ring-2 ring-luc-accent" : "opacity-60 hover:opacity-100"
+                          }`
+                    }
                   >
                     <PersonChip pessoa={p} />
                   </button>
