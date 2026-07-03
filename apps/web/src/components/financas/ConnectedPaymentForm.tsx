@@ -33,6 +33,7 @@ export function ConnectedPaymentForm({
   notaValor,
   billId,
   successHref,
+  closeHref,
 }: {
   action: (prev: PaymentFormState, formData: FormData) => Promise<PaymentFormState>
   pessoas: PessoaComAvatar[]
@@ -47,6 +48,8 @@ export function ConnectedPaymentForm({
   notaValor?: string
   billId?: string
   successHref?: string
+  /** Modal compacto (Final): rota do "Cancelar" do rodapé — o mesmo destino do X do Modal. */
+  closeHref?: string
 }) {
   // Wizard e compacto compartilham o pós-registro: upload dos comprovantes em
   // duas etapas e o redirect com `lancado=` — só a coleta dos campos difere.
@@ -189,11 +192,14 @@ export function ConnectedPaymentForm({
       competenciasComLancamento={competenciasComLancamento}
       submitLabel={submitLabel}
       submittingLabel={submittingLabel}
-      onCancelar={onCancelar}
       competenciaOculta={compacto}
       notaValor={notaValor}
       arquivos={compacto ? arquivos : undefined}
       onArquivosChange={compacto ? setArquivos : undefined}
+      onCancelar={
+        onCancelar ??
+        (compacto && closeHref ? () => router.replace(closeHref, { scroll: false }) : undefined)
+      }
     />
   )
 }

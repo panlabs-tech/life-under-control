@@ -1,13 +1,15 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest"
 import { cleanup, render, screen } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { RegistrarPagamentoModal } from "./RegistrarPagamentoModal"
 
 // next/navigation não tem router montado nos testes — mockamos o mínimo; a
 // navegação em si (fechar/redirect) é do Next, não deste seam.
+const replace = vi.fn()
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ replace: vi.fn(), refresh: vi.fn() }),
+  useRouter: () => ({ replace, refresh: vi.fn() }),
 }))
 
 // O módulo real de actions é "use server" e arrasta @/auth (next-auth) — fora
@@ -18,7 +20,10 @@ vi.mock("@/app/(app)/areas/financas/actions", () => ({
   confirmarComprovante: vi.fn(),
 }))
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  replace.mockClear()
+})
 
 const PESSOAS = [
   {
@@ -38,6 +43,7 @@ describe("RegistrarPagamentoModal (Seam 2)", () => {
       <RegistrarPagamentoModal
         billId="luz"
         billName="Luz"
+        billIcon="zap"
         action={async () => ({ erros: [] })}
         pessoas={PESSOAS}
         inicial={{
@@ -60,6 +66,10 @@ describe("RegistrarPagamentoModal (Seam 2)", () => {
       screen.getByText("competência julho de 2026 · vence em 6 dias (18/07)"),
     ).toBeInTheDocument()
 
+    // chip de ícone 28×28 da Conta no header (Final, #87)
+    const chip = container.querySelector("header svg")
+    expect(chip).toBeInTheDocument()
+
     // competência fixa da ocorrência do bloco: hidden, sem campo editável
     expect(screen.queryByLabelText("Competência")).not.toBeInTheDocument()
     const hidden = container.querySelector('input[name="competencia"]')
@@ -72,5 +82,33 @@ describe("RegistrarPagamentoModal (Seam 2)", () => {
       ),
     ).toBeInTheDocument()
     expect(screen.getByText("Escolher imagens ou PDFs")).toBeInTheDocument()
+  })
+
+  it("test_cancelar_navega_para_closeHref", async () => {
+    const user = userEvent.setup()
+    render(
+      <RegistrarPagamentoModal
+        billId="luz"
+        billName="Luz"
+        billIcon="zap"
+        action={async () => ({ erros: [] })}
+        pessoas={PESSOAS}
+        inicial={{
+          valor: "120,00",
+          dataPagamento: "2026-07-09",
+          competencia: "2026-07",
+          paidBy: "p-1",
+        }}
+        competenciasComLancamento={[]}
+        contexto="competência julho de 2026 · vence em 6 dias (18/07)"
+        closeHref="/areas/financas/pagamentos-recorrentes"
+        successHref="/areas/financas/pagamentos-recorrentes?lancadoConta=luz"
+      />,
+    )
+
+    await user.click(screen.getByRole("button", { name: "Cancelar" }))
+    expect(replace).toHaveBeenCalledWith("/areas/financas/pagamentos-recorrentes", {
+      scroll: false,
+    })
   })
 })
