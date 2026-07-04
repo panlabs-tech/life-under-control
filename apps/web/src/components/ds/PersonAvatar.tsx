@@ -5,11 +5,11 @@ import type { CSSProperties } from "react"
 import { useEffect, useState } from "react"
 
 /**
- * O badge visual de uma Pessoa (#51): a foto do Google (quadrado-arredondado,
- * nunca círculo) quando há `avatarUrl`, com skeleton pulsante enquanto carrega;
- * cai no fallback inicial+cor quando não há foto (login falhou ou nunca
- * espelhou). Compartilhado por `PersonChip` e `ShellPersonBadge` — mesma
- * geometria em todo contexto (header, rodapé da sidebar, chips de autoria).
+ * O badge visual de uma Pessoa (#51): a foto do Google quando há `avatarUrl`,
+ * com skeleton pulsante enquanto carrega; cai no fallback inicial+cor quando
+ * não há foto (login falhou ou nunca espelhou). A geometria é do chamador
+ * (`className`): chips de autoria seguem quadrado-arredondados; o bloco de
+ * usuário da sidebar é o círculo de 32px do protótipo Final.
  */
 export function PersonAvatar({
   avatarUrl,
@@ -23,10 +23,10 @@ export function PersonAvatar({
   avatarUrl?: string | null
   inicial: string
   nome: string
-  /** Lado do quadrado, em px (19–26 conforme o contexto). */
+  /** Lado, em px (19–32 conforme o contexto). */
   size: number
   colors: CSSProperties
-  /** Classes de raio (`rounded-luc-sm`/`rounded-[8px]`) + layout do chamador. */
+  /** Classes de raio (`rounded-luc-sm`/`rounded-full`) + layout do chamador. */
   className?: string
   /** O nome já aparece como texto visível ao lado (ex.: PersonChip com `showName`) — o badge não deve anunciar o nome de novo pro leitor de tela. */
   decorative?: boolean
