@@ -18,7 +18,9 @@
 ## Regras de copy
 
 - UI em pt-BR; identificadores de código em inglês.
-- Estados em minúsculas: `ativa`, `em breve`, `quitada`, `pendente`, `a vencer`, `encerrada`.
+- Estados em minúsculas: `ativa`, `em breve`, `quitada`, `pendente`, `a vencer`, `vence em breve`, `vencida`, `pago`, `encerrada`.
+- Estados de Conta/ocorrência concordam no **feminino**: `vencida`, nunca `vencido`. O label map do protótipo Final erra o gênero — em copy, vale o glossário, não o mock.
+- Termos de domínio são capitalizados também no meio da frase (Conta, Lançamento, Área, Lar, Pessoa, Competência). O protótipo às vezes escreve "contas" em minúscula; a implementação não o segue nisso.
 - Dinheiro: `R$ 1.234,56`.
 - Datas: `dd/mm/aaaa`.
 - Leituras derivadas são frases, não campos editáveis: “venceu há 8 dias”, “em 3 dias”, “13/14 no prazo”.

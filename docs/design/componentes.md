@@ -88,6 +88,22 @@ A pílula é a mesma composição em todos os estados — borda no próprio tom 
 
 O valor acompanha o estado: soma exata quando `pago`, `≈ média` **sem centavos** quando em aberto com histórico (estimativa não finge fato), e `—` (ausência explícita) sem base — nunca `R$ 0,00` inventado.
 
+O card `pago` repousa **atenuado** (opacidade .62 + dessaturação, protótipo Final) e recupera contraste pleno no hover; a atenuação nunca é o único sinal — a pílula e o rótulo textual do estado permanecem presentes mesmo em repouso. Se a legibilidade do repouso incomodar em tela real, o ajuste é decisão do operador (nota de acessibilidade da rodada de fidelidade, issue #103).
+
+## Modal compacto (`narrow`)
+
+Cartão de gesto curto do protótipo Final (edição rápida de Conta, Registrar Lançamento em contexto). Difere da casca clássica de modal e **não** vira tela cheia no mobile:
+
+- painel central **com margem em toda largura** (20px), máx. 400px, raio `--luc-r-xl`, `--luc-surface-3`, borda strong, sombra profunda; altura máx. `100dvh - 40px` com corpo rolável;
+- overlay `--luc-bg` a 70% com blur leve (3px); entrada com leve *pop*;
+- header sem divisória: eyebrow Manrope 11px caixa alta tracking `.13em` em text-3; chip 28px raio 8 em accent-12 (logo da Conta ou ícone do catálogo — ver `BillHeaderChip`); título 14.5px bold; contexto **mono 10.5px** em muted (ex.: `competência julho de 2026 · vence em 3 dias`); X 32px raio 7;
+- campos 38px raio 9, borda strong, fundo branco a 3%; rótulos no eyebrow de campo (11px caixa alta text-3); erro veste warn na borda do próprio campo;
+- seleção (segmentos, grade de ícones, Pago por) veste `--luc-accent-06` + borda accent a 45%; grade de ícones 36px raio 9;
+- CTA de anexo tracejado com clipe ("Anexar comprovantes · imagem ou PDF"); chips de arquivo com borda accent a 32% sobre accent-06;
+- rodapé com um **primário de largura cheia** (ou primário flex + secundário estreito quando há Cancelar);
+- Escape e clique no overlay são **descartes silenciosos**: uma operação em andamento os trava (`travado`); o X rotulado segue sendo a saída deliberada;
+- a grade de ícones fica **sempre visível**, mesmo com logo — o ícone é o fallback persistido e o mock não dita comportamento (decisão derivada, 04/07/2026).
+
 ## Command palette
 
 Overlay escuro com blur leve. Painel em `--luc-surface-3`, borda strong, raio 13–15px, sombra profunda. Abre por `Ctrl/⌘+K`, fecha por Escape e clique no overlay, prende foco enquanto aberta e lista apenas destinos existentes. Placeholder: “Ir para…”.

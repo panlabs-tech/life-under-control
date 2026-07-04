@@ -38,7 +38,7 @@ Bordas são sempre branco translúcido, nunca uma cor sólida. A paleta não gan
 - `--luc-font-sans`: Manrope, pesos 400, 500, 600, 700 e 800.
 - `--luc-font-mono`: JetBrains Mono, pesos 400, 500 e 600.
 - **Display:** Manrope 800, 34px, tracking `-.025em`.
-- **Título de página:** Manrope 800, 25px, tracking `-.02em`.
+- **Título de página:** Manrope 800, 25px, tracking `-.02em`. O protótipo Final renderiza 26px; vale o contrato (drift de origem registrado na rodada de fidelidade de 04/07/2026, issue #103) — se o operador preferir 26px, corrige-se aqui e em `PageHeader`.
 - **Título de bloco:** Manrope 700. A origem conflita entre 13px no metadado e 14px na amostra; telas de referência usam 12.5–14px conforme densidade.
 - **Corpo:** Manrope 500, 14px.
 - **Rótulo:** Manrope 700, caixa alta, tracking `.13em`. A origem conflita entre 11px no metadado e 12px na amostra; a casca usa 10.5–12px conforme espaço.
@@ -52,6 +52,7 @@ Dinheiro, datas, percentuais, atalhos e eixos usam JetBrains Mono. Texto, títul
 - Cards: 15–18px de padding.
 - Seções: 24–32px de respiro.
 - `--luc-r-sm`: 7px, para pílulas e chips compactos.
+- 8px, valor **literal** (sem token — a origem não o define no `:root`): degrau contextual dos chips de ícone 28–36px do protótipo Final (chip do header de modal compacto, tile de destaque, ícone de bloco do Panorama).
 - `--luc-r-md`: 9px, para controles e navegação.
 - `--luc-r-lg`: 13px, para cards.
 - `--luc-r-xl`: 16px, para modais e painéis destacados.

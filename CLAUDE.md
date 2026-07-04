@@ -14,7 +14,7 @@
 
 ## Modo de implementação autônoma
 
-Disparado por "implementa as issues" (ou equivalente): colete as issues `status:ready-for-agent` abertas (sem `status:blocked`) da Área corrente → um **git worktree por issue** → skill /tdd (RED→GREEN→refactor) → commit + push (Conventional Commits) → a esteira `pr-checks` abre o PR → **mergeie no verde** → encadeie até as issues acabarem, **parando só se o operador pedir** (ex.: compactar contexto). Fluxo completo em [`docs/agents/workflow.md`](docs/agents/workflow.md).
+Disparado por "implementa as issues" (ou equivalente): colete as issues `status:ready-for-agent` abertas (sem `status:blocked`) da Área corrente → um **git worktree por issue** → skill /tdd (RED→GREEN→refactor) → commit + push (Conventional Commits) → a esteira `pr-checks` abre o PR → **conferência de pixel** quando a issue referencia protótipo (gate verde não prova fidelidade — passos em [`docs/agents/workflow.md`](docs/agents/workflow.md)) → **mergeie no verde** → encadeie até as issues acabarem, **parando só se o operador pedir** (ex.: compactar contexto). Fluxo completo em [`docs/agents/workflow.md`](docs/agents/workflow.md).
 
 **Economia de contexto (enforçada por hooks):** toda implementação delega o reconhecimento do código a um subagente `Explore` e age só sobre o digest — não relê a árvore. Dois hooks do projeto cuidam disso: o injetor (`UserPromptSubmit`) injeta o protocolo no gatilho (`/implement`, "implementa as issues") e a trava (`PreToolUse`/Read) bloqueia releitura de output cru. Protocolo em `.claude/context-economy-protocol.md`; porquê e runbook de promoção em [`docs/agents/workflow.md`](docs/agents/workflow.md).
 

@@ -80,3 +80,9 @@ Todos os gaps listados acima foram tratados em 01/07/2026. Itens em que a origem
 | formulários, pending, disabled, erro e zona de risco | corrigido | `FormField`, `BillForm`, `PaymentForm`, `DangerZone` |
 
 Validação local final: Biome em 146 arquivos, TypeScript sem erros e 246 testes aprovados; 31 testes de adapters dependentes de infraestrutura permaneceram corretamente ignorados pela configuração da suíte.
+
+## Adendo — rodada de fidelidade de 04/07/2026 (issue #103)
+
+Auditoria issue-a-issue do PRD #92 contra o protótipo `Pagamentos Recorrentes Final` (com `sc-if` resolvido), depois que as telas de Finanças ganharam o cockpit, o gráfico Total Pago por Mês e os modais compactos. Ledger completo e vereditos na issue #103; correções mergeadas nos PRs #113 (gráfico), #115 (cockpit), #116 (modais compactos) e #117 (casca).
+
+Três modos de falha motivaram o novo passo de processo ("Conferência de pixel" em [`docs/agents/workflow.md`](../agents/workflow.md)): implementação×protótipo com gates verdes (ex.: classe Tailwind de token inexistente rendendo transparente), protótipo×glossário (impl fiel ao domínio parecia divergência) e achado-falso (`sc-if` não resolvido). As reconciliações de contrato decorrentes estão registradas no [README](README.md), em "Decisões derivadas da rodada de fidelidade".

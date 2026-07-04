@@ -27,6 +27,35 @@ Disparado por **"implementa as issues"** (ou equivalente). O agente está livre 
 
 A cadência de *Áreas* permanece de planejamento ([ADR-0006](../adr/0006-faseamento-por-areas.md)): *qual* Área ativar a seguir é decisão do operador; *dentro* das issues fatiadas, a execução é autônoma.
 
+### Conferência de pixel (obrigatória quando a issue referencia protótipo)
+
+Antes de mergear um PR que implementa tela ou componente com origem num protótipo do Claude Design:
+
+1. **Resolva o `sc-if`** no script do protótipo (props default → estado computado) antes de afirmar qualquer divergência: elemento sob condição falsa não é referência.
+2. **Compare com o glossário**: composição (layout, medidas, cores, formas) o protótipo governa; vocabulário e significado (termos de domínio, estados, invariantes) o `CONTEXT.md` e o [`docs/design/`](../design/README.md) governam. Conflito entre os dois vira achado **tipo B** pro operador — nunca se escolhe sozinho.
+3. **Olhe o pixel**: gate verde não prova fidelidade (jsdom não renderiza layout, overflow nem cor). Gere uma réplica estática com os tokens reais ou capture a tela rodando, lado a lado com o protótipo, e anexe ao PR.
+
+Sem os três passos o PR não está "verde" para merge — está apenas compilando. A origem desta regra são os 3 modos de falha observados na rodada de fidelidade de 04/07/2026 (issue #103): impl×protótipo (o pixel divergia com a suíte verde), protótipo×glossário (a impl fiel ao domínio parecia "errada") e achado-falso (`sc-if` não resolvido ou relato de subagente não verificado).
+
+### Issues de UI com protótipo — forma dos ACs
+
+Ao fatiar (`/to-issues`) uma tela com origem em protótipo, separe os critérios de aceite em três seções — cada critério cita sua autoridade:
+
+```markdown
+## Acceptance criteria
+
+### Composição (o protótipo governa)
+- [ ] <medida/cor/forma/espaçamento — cite a linha do protótipo, com o sc-if resolvido>
+
+### Vocabulário & significado (CONTEXT.md/docs/design governam)
+- [ ] <termo de domínio/rótulo de estado/invariante — cite o item do glossário>
+
+### Verificação visual
+- [ ] Evidência de pixel anexada ao PR (réplica com tokens reais ou screenshot lado a lado com o protótipo).
+```
+
+Um AC pode **corrigir deliberadamente** o protótipo (ex.: comportamento que o mock não dita) — quando o fizer, diga explicitamente que diverge e por quê, senão a auditoria de fidelidade reporta a divergência como bug.
+
 ## Economia de contexto (enforçada por hooks)
 
 Medições de `/implement` reais mostraram a janela chegando a 92-160k de tokens já no primeiro código. Análise forense de uma sessão pós-otimização (`#20`) refinou o diagnóstico: o dump dominante **não** foi leitura de arquivo "à toa" — os Reads de vizinho eram espelhamento necessário pro TDD. Os dois maiores custos evitáveis foram **a prosa do próprio agente** (~33k em dois turnos: um plano longo pré-RED + narração) e a **releitura de vizinhos que o digest já tinha visto** (o digest descrevia, mas não carregava o código a clonar). O conserto é estrutural, não exortação.
