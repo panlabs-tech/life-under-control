@@ -212,7 +212,7 @@ export default async function FinancasPage({
         )}
 
         {/* Análise Histórica (#98): fora do gate `ativas>0` — a série vive só de fatos na janela. */}
-        <TotalPagoPorMes serie={serieHistorica} destaques={destaques} />
+        <TotalPagoPorMes serie={serieHistorica} destaques={destaques} hoje={hoje} />
 
         {MOSTRAR_CONTAS_ATIVAS && (
           <section aria-labelledby="contas-ativas-heading" className="flex flex-col gap-5">

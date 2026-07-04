@@ -213,7 +213,7 @@ export function BarrasCompetencia({
         {barraDoAtivo && (
           <div
             role="tooltip"
-            className="pointer-events-none absolute top-0 right-2 rounded-md border border-luc-border bg-luc-surface px-2 py-1 font-mono text-[10.5px] text-luc-text"
+            className="pointer-events-none absolute top-0 right-2 rounded-md border border-luc-border bg-luc-surface-3 px-2 py-1 font-mono text-[10.5px] text-luc-text"
           >
             {textoBarra(barraDoAtivo)}
           </div>
