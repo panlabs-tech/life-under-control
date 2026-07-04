@@ -55,8 +55,9 @@ describe("TotalPagoPorMes (Seam 2)", () => {
         serie={comDados([ponto({ competencia: "2026-06", valor: 7000, estado: "em-curso" })])}
       />,
     )
-    // texto, não só cor
-    expect(screen.getByText("(em curso)")).toBeInTheDocument()
+    // texto, não só cor — a legenda sob o gráfico, como o protótipo (sem rótulo inline no SVG)
+    expect(screen.getByText("Último ponto: mês em curso (parcial).")).toBeInTheDocument()
+    expect(screen.queryByText("(em curso)")).not.toBeInTheDocument()
     const barra = screen.getByTestId("total-pago-ponto")
     expect(barra).toHaveAttribute("data-estado", "em-curso")
     expect(barra).toHaveAttribute("aria-label", expect.stringContaining("em curso"))
@@ -82,10 +83,12 @@ describe("TotalPagoPorMes (Seam 2)", () => {
     )
     const [marco, abril] = screen.getAllByTestId("total-pago-ponto")
     fireEvent.focus(marco)
-    expect(screen.getByRole("tooltip")).toHaveTextContent("mar/26")
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Março de 2026")
     fireEvent.mouseEnter(abril)
     // foco vence o hover: o tooltip continua no mês focado
-    expect(screen.getByRole("tooltip")).toHaveTextContent("mar/26")
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Março de 2026")
+    // fundo real do protótipo — `bg-luc-surface` não existe no bridge (ficava transparente)
+    expect(screen.getByRole("tooltip")).toHaveClass("bg-luc-surface-3")
   })
 
   it("test_estado_vazio_explica_a_limitacao_sem_esconder_a_secao", () => {
@@ -106,8 +109,8 @@ describe("TotalPagoPorMes (Seam 2)", () => {
     const linha = within(screen.getByText("jun/26").closest("tr") as HTMLElement)
     expect(linha.getByText("sem dado")).toBeInTheDocument()
     expect(linha.queryByText("R$ 0,00")).not.toBeInTheDocument()
-    // traço + texto: o mês segue marcado como em curso, sem cifra
-    expect(screen.getByText("(em curso)")).toBeInTheDocument()
+    // traço + texto: a legenda de mês em curso continua dita por extenso
+    expect(screen.getByText("Último ponto: mês em curso (parcial).")).toBeInTheDocument()
     expect(screen.getByTestId("total-pago-ponto")).toHaveAttribute(
       "aria-label",
       expect.stringContaining("sem lançamento"),

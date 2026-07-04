@@ -1,10 +1,10 @@
 "use client"
 
 import { scaleLinear } from "@visx/scale"
-import { BarChart3 } from "lucide-react"
+import { ChartLine } from "lucide-react"
 import { useState } from "react"
 import { SectionHeading } from "@/components/ds/SectionHeading"
-import { mesAno, mesCurto } from "@/core/domain/bill"
+import { MESES, mesAno, mesCurto } from "@/core/domain/bill"
 import { formatBRL } from "@/core/domain/money"
 import type { PontoTotalPagoMes, SerieHistorica } from "@/core/use-cases/derive-analise-historica"
 import type { DestaquesMes as Destaques } from "@/core/use-cases/derive-destaques-mes"
@@ -32,9 +32,25 @@ function textoPonto(ponto: PontoTotalPagoMes): string {
   return ponto.estado === "em-curso" ? `${mes} · ${valor} · em curso` : `${mes} · ${valor}`
 }
 
+/** "Julho de 2026" — o título do tooltip, como o protótipo (mês por extenso). */
+function tituloMes(competencia: string): string {
+  return `${MESES[Number(competencia.slice(5, 7)) - 1]} de ${competencia.slice(0, 4)}`
+}
+
+/** A cifra do tooltip: valor formatado, ou a ausência dita por extenso. */
+function valorTooltip(ponto: PontoTotalPagoMes): string {
+  if (ponto.estado === "sem-dado") return "sem dado"
+  if (ponto.estado === "em-curso" && ponto.valor === 0) return "sem lançamento ainda"
+  return formatBRL(ponto.valor)
+}
+
+function ddmm(dataIso: string): string {
+  return `${dataIso.slice(8, 10)}/${dataIso.slice(5, 7)}`
+}
+
 const ICONE = (
   <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-luc-md bg-luc-accent-12 text-luc-accent-bright">
-    <BarChart3 aria-hidden size={15} />
+    <ChartLine aria-hidden size={15} />
   </span>
 )
 
@@ -46,17 +62,22 @@ const ICONE = (
  * curso × mês fechado"). Mês sem fato **quebra** a linha (nunca a puxa até zero:
  * ausência ≠ zero, invariante #3) e vira um marcador oco distinto. A seção nunca
  * some: sem fatos na janela, mostra a limitação por extenso. Consome a série
- * pronta do use-case — nada de domínio é recalculado aqui (ADR-0010).
+ * pronta do use-case — nada de domínio é recalculado aqui (ADR-0010). Ao lado do
+ * gráfico, os destaques do último mês fechado (#101) compõem o grid do protótipo.
  */
 export function TotalPagoPorMes({
   serie,
   destaques,
+  hoje,
 }: {
   serie: SerieHistorica
   destaques?: Destaques
+  /** Data de hoje (`YYYY-MM-DD`) — só para o tooltip do mês em curso ("até dd/mm"). */
+  hoje?: string
 }) {
   return (
     <section aria-labelledby="historico-heading" className="flex flex-col gap-[18px]">
+      <div aria-hidden className="border-luc-border border-t" />
       <SectionHeading
         id="historico-heading"
         title="Análise Histórica"
@@ -68,49 +89,53 @@ export function TotalPagoPorMes({
           Total Pago por Mês
         </span>
         <span className="text-xs text-luc-muted">
-          A trajetória do total pago nos últimos 12 meses.
+          A trajetória dos últimos 12 meses e as maiores variações do último mês fechado.
         </span>
       </div>
       {serie.estado === "sem-fatos" ? (
-        <div className="rounded-[14px] border border-luc-border bg-luc-surface-2 p-4 sm:px-[18px]">
+        <div className="rounded-luc-lg border border-luc-border bg-luc-surface-2 px-4 pt-[15px] pb-[13px]">
           <p className="text-xs text-luc-text-3">Sem Lançamentos na janela de 12 meses ainda.</p>
         </div>
       ) : (
-        <>
-          <GraficoTotalPago pontos={serie.pontos} />
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-3">
+          <GraficoTotalPago pontos={serie.pontos} hoje={hoje} />
           {destaques && <DestaquesMes destaques={destaques} />}
-        </>
+        </div>
       )}
     </section>
   )
 }
 
 /** O card do gráfico Visx + a tabela `sr-only` equivalente. Isola o estado de foco/hover. */
-function GraficoTotalPago({ pontos }: { pontos: PontoTotalPagoMes[] }) {
+function GraficoTotalPago({ pontos, hoje }: { pontos: PontoTotalPagoMes[]; hoje?: string }) {
   // Foco e hover à parte (como em `HistoriaConta`): passar o mouse por OUTRO
   // ponto não pode apagar o tooltip de quem está com foco de teclado.
   const [focado, setFocado] = useState<string | null>(null)
   const [emHover, setEmHover] = useState<string | null>(null)
   const ativo = focado ?? emHover
 
-  // Escala só pelos meses fechados: o mês em curso é parcial e nunca dita a
-  // comparação (CONTEXT.md "mês em curso × mês fechado"). Com `clamp`, um total
-  // parcial grande satura no topo em vez de achatar a trajetória fechada.
+  // Escala só pelos meses fechados, na banda do protótipo: o domínio "dá zoom"
+  // entre o menor e o maior mês fechado (lo = mín − 35% do intervalo; hi = máx
+  // × 1,08) para a trajetória ocupar o quadro — o mês em curso é parcial, nunca
+  // dita a escala (CONTEXT.md "mês em curso × mês fechado") e satura na borda.
   const valoresFechados = pontos
     .filter((ponto) => ponto.estado === "fechado")
     .map((ponto) => ponto.valor)
-  const maxValor = Math.max(1, ...valoresFechados)
-  const yScale = scaleLinear<number>({
-    domain: [0, maxValor],
-    range: [HEIGHT - PAD_BOTTOM, PAD_TOP],
-    clamp: true,
-  })
+  const hiFechado = valoresFechados.length ? Math.max(...valoresFechados) : 1
+  const loFechado = valoresFechados.length ? Math.min(...valoresFechados) : 0
+  const hi = hiFechado * 1.08
+  const lo = Math.max(0, loFechado - (hiFechado - loFechado) * 0.35)
+  const span = hi - lo || 1
+  const yTop = PAD_TOP
+  const yBase = HEIGHT - PAD_BOTTOM
+  const escalaY = scaleLinear<number>({ domain: [lo, hi], range: [yBase, yTop] })
+  // Como o protótipo: transborda no máximo 3px em vez de grudar na borda.
+  const yOf = (valor: number) => Math.max(yTop - 3, Math.min(yBase + 3, escalaY(valor)))
 
   const innerW = WIDTH - PAD_X * 2
   const xAt = (i: number) =>
     pontos.length === 1 ? WIDTH / 2 : PAD_X + (i * innerW) / (pontos.length - 1)
-  const baseY = yScale(0)
-  const coords = pontos.map((ponto, i) => ({ ponto, x: xAt(i), y: yScale(ponto.valor) }))
+  const coords = pontos.map((ponto, i) => ({ ponto, x: xAt(i), y: yOf(ponto.valor) }))
 
   // A linha/área cobre só corridas de meses fechados; qualquer não-fechado
   // (sem-dado ou o mês em curso) **interrompe** o traço — a linha nunca cruza um
@@ -128,11 +153,13 @@ function GraficoTotalPago({ pontos }: { pontos: PontoTotalPagoMes[] }) {
 
   const caminhoLinha = (corrida: typeof coords) =>
     corrida.map((c, k) => `${k === 0 ? "M" : "L"}${c.x} ${c.y}`).join(" ")
+  // A área desce até a base do quadro (protótipo) — é moldura da trajetória,
+  // não leitura proporcional; a cifra mora no tooltip e na tabela sr-only.
   const caminhoArea = (corrida: typeof coords) => {
     const primeiro = corrida[0]
     const ultimo = corrida[corrida.length - 1]
     const topo = corrida.map((c) => `L${c.x} ${c.y}`).join(" ")
-    return `M${primeiro.x} ${baseY} ${topo} L${ultimo.x} ${baseY} Z`
+    return `M${primeiro.x} ${yBase} ${topo} L${ultimo.x} ${yBase} Z`
   }
 
   // Cauda tracejada: do último mês fechado até o ponto do mês em curso (parcial).
@@ -143,13 +170,15 @@ function GraficoTotalPago({ pontos }: { pontos: PontoTotalPagoMes[] }) {
       ? `M${ultimoFechado.x} ${ultimoFechado.y} L${emCurso.x} ${emCurso.y}`
       : null
 
-  const gridYs = [0.25, 0.5, 0.75].map((f) => yScale(maxValor * f))
+  const gridYs = [0.82, 0.5, 0.18].map((f) => yOf(lo + span * f))
   const hitW = pontos.length > 1 ? innerW / (pontos.length - 1) : 80
   const pontoAtivo = pontos.find((ponto) => ponto.competencia === ativo)
+  const coordAtiva = coords.find((c) => c.ponto.competencia === ativo)
   const temEmCurso = pontos.some((ponto) => ponto.estado === "em-curso")
+  const tooltipLeft = coordAtiva ? Math.max(11, Math.min(89, (coordAtiva.x / WIDTH) * 100)) : 50
 
   return (
-    <div className="rounded-[14px] border border-luc-border bg-luc-surface-2 p-4 sm:px-[18px]">
+    <div className="rounded-luc-lg border border-luc-border bg-luc-surface-2 px-4 pt-[15px] pb-[13px]">
       <div className="flex items-baseline justify-between gap-2">
         <span className="text-[10px] font-bold uppercase tracking-[0.11em] text-luc-text-3">
           Total pago por mês
@@ -174,9 +203,8 @@ function GraficoTotalPago({ pontos }: { pontos: PontoTotalPagoMes[] }) {
               x2={WIDTH - PAD_X}
               y1={gy}
               y2={gy}
-              stroke="var(--luc-text-3)"
+              stroke="rgba(255,255,255,.05)"
               strokeWidth={1}
-              opacity={0.12}
             />
           ))}
 
@@ -186,7 +214,7 @@ function GraficoTotalPago({ pontos }: { pontos: PontoTotalPagoMes[] }) {
               aria-hidden
               d={caminhoArea(corrida)}
               fill="var(--luc-accent)"
-              fillOpacity={0.08}
+              fillOpacity={0.06}
               stroke="none"
             />
           ))}
@@ -215,7 +243,21 @@ function GraficoTotalPago({ pontos }: { pontos: PontoTotalPagoMes[] }) {
             />
           )}
 
+          {coordAtiva && (
+            <line
+              aria-hidden
+              x1={coordAtiva.x}
+              x2={coordAtiva.x}
+              y1={yTop}
+              y2={yBase}
+              stroke="var(--luc-accent)"
+              strokeWidth={1}
+              opacity={0.38}
+            />
+          )}
+
           {coords.map(({ ponto, x, y }) => {
+            const estaAtivo = ativo === ponto.competencia
             const compartilhado = {
               "data-testid": "total-pago-ponto",
               "data-estado": ponto.estado,
@@ -227,7 +269,7 @@ function GraficoTotalPago({ pontos }: { pontos: PontoTotalPagoMes[] }) {
                 setEmHover((atual) => (atual === ponto.competencia ? null : atual)),
               onFocus: () => setFocado(ponto.competencia),
               onBlur: () => setFocado((atual) => (atual === ponto.competencia ? null : atual)),
-              className: "cursor-pointer outline-none focus-visible:opacity-70",
+              className: "cursor-pointer outline-none",
             }
             // Alvo invisível de largura de faixa: hover/foco generosos sem depender
             // do raio minúsculo do marcador.
@@ -236,9 +278,13 @@ function GraficoTotalPago({ pontos }: { pontos: PontoTotalPagoMes[] }) {
                 x={x - hitW / 2}
                 y={PAD_TOP}
                 width={hitW}
-                height={baseY - PAD_TOP}
+                height={yBase - PAD_TOP}
                 fill="transparent"
               />
+            )
+            // Anel de destaque do ponto ativo (hover/foco), como o protótipo.
+            const anel = estaAtivo && (
+              <circle aria-hidden cx={x} cy={y} r={8.5} fill="var(--luc-accent)" opacity={0.22} />
             )
 
             if (ponto.estado === "sem-dado") {
@@ -249,7 +295,7 @@ function GraficoTotalPago({ pontos }: { pontos: PontoTotalPagoMes[] }) {
                   {hit}
                   <circle
                     cx={x}
-                    cy={baseY}
+                    cy={yBase}
                     r={3}
                     fill="none"
                     stroke="var(--luc-text-3)"
@@ -261,29 +307,20 @@ function GraficoTotalPago({ pontos }: { pontos: PontoTotalPagoMes[] }) {
             }
 
             if (ponto.estado === "em-curso" && ponto.valor === 0) {
-              // Mês corrente ainda sem Lançamento: ponto oco na base + rótulo, nunca
-              // um zero disfarçado (invariante #3).
+              // Mês corrente ainda sem Lançamento: ponto oco na base — nunca um
+              // zero disfarçado (invariante #3); o texto vive na legenda e no tooltip.
               return (
                 <g key={ponto.competencia} {...compartilhado}>
                   {hit}
                   <circle
                     cx={x}
-                    cy={baseY}
+                    cy={yBase}
                     r={4}
                     fill="none"
                     stroke="var(--luc-accent)"
                     strokeWidth={2}
                     strokeDasharray="3 2"
                   />
-                  <text
-                    x={x}
-                    y={baseY - 10}
-                    textAnchor="middle"
-                    className="text-[9px]"
-                    fill="var(--luc-accent)"
-                  >
-                    (em curso)
-                  </text>
                 </g>
               )
             }
@@ -293,56 +330,76 @@ function GraficoTotalPago({ pontos }: { pontos: PontoTotalPagoMes[] }) {
               // forma além da cor.
               return (
                 <g key={ponto.competencia} {...compartilhado}>
+                  {anel}
                   {hit}
                   <circle
                     cx={x}
                     cy={y}
                     r={5}
-                    fill="none"
+                    fill="var(--luc-surface-2)"
                     stroke="var(--luc-accent)"
                     strokeWidth={2}
                   />
-                  <text
-                    x={x}
-                    y={y - 11}
-                    textAnchor="middle"
-                    className="text-[9px]"
-                    fill="var(--luc-accent)"
-                  >
-                    (em curso)
-                  </text>
                 </g>
               )
             }
 
-            // Mês fechado: ponto sólido sobre a linha.
+            // Mês fechado: ponto sólido sobre a linha, contornado pela superfície
+            // do card (o traço não "vaza" pelo ponto) — cresce quando ativo.
             return (
               <g key={ponto.competencia} {...compartilhado}>
+                {anel}
                 {hit}
-                <circle cx={x} cy={y} r={3.5} fill="var(--luc-accent)" />
+                <circle
+                  cx={x}
+                  cy={y}
+                  r={estaAtivo ? 4.5 : 3.5}
+                  fill="var(--luc-accent)"
+                  stroke="var(--luc-surface-2)"
+                  strokeWidth={2}
+                />
               </g>
             )
           })}
         </svg>
 
+        <div aria-hidden className="pointer-events-none absolute inset-0">
+          {coords.map(({ ponto, x }) => (
+            <span
+              key={ponto.competencia}
+              style={{ left: `${(x / WIDTH) * 100}%`, top: `${((yBase + 12) / HEIGHT) * 100}%` }}
+              className={`absolute -translate-x-1/2 whitespace-nowrap font-mono text-[9px] tracking-[0.02em] ${
+                ponto.estado === "em-curso" ? "text-luc-text-3" : "text-luc-faint"
+              }`}
+            >
+              {mesCurto(ponto.competencia)}
+            </span>
+          ))}
+        </div>
+
         {pontoAtivo && (
           <div
             role="tooltip"
-            className="pointer-events-none absolute top-0 right-2 rounded-md border border-luc-border bg-luc-surface px-2 py-1 font-mono text-[10.5px] text-luc-text"
+            style={{ left: `${tooltipLeft}%` }}
+            className="pointer-events-none absolute top-0.5 z-[5] -translate-x-1/2 whitespace-nowrap rounded-luc-md border border-luc-border-strong bg-luc-surface-3 px-2.5 py-[7px] shadow-[0_12px_30px_rgba(0,0,0,.45)]"
           >
-            {textoPonto(pontoAtivo)}
+            <div className="text-[11px] font-bold text-luc-text">
+              {tituloMes(pontoAtivo.competencia)}
+            </div>
+            <div className="mt-px font-mono text-[13px] font-semibold text-luc-text">
+              {valorTooltip(pontoAtivo)}
+            </div>
+            {pontoAtivo.estado === "em-curso" && (
+              <div className="mt-0.5 text-[10px] text-luc-warn">
+                parcial · em curso{hoje ? ` até ${ddmm(hoje)}` : ""}
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      <div className="mt-1 flex justify-between font-mono text-[10.5px] text-luc-muted">
-        {pontos.map((ponto) => (
-          <span key={ponto.competencia}>{mesCurto(ponto.competencia)}</span>
-        ))}
-      </div>
-
       {temEmCurso && (
-        <div className="mt-3 flex items-center gap-1.5 text-[10.5px] text-luc-muted">
+        <div className="mt-3 flex items-center gap-1.5 text-[10.5px] text-luc-faint">
           <span className="h-0 w-[15px] shrink-0 border-t-2 border-dashed border-luc-accent opacity-60" />
           <span>Último ponto: mês em curso (parcial).</span>
         </div>
