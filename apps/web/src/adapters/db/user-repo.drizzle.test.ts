@@ -64,4 +64,42 @@ suite("drizzleUserRepo (Seam 2 — Postgres real)", () => {
     const depois = await repo.obterPorEmail(pessoaEmail)
     expect(depois?.avatarKey).toBe(`identity/users/${pessoaId}/avatar`)
   })
+
+  it("test_google_email_comeca_nulo", async () => {
+    const repo = drizzleUserRepo(db)
+
+    const pessoa = await repo.obterPorEmail(pessoaEmail)
+    expect(pessoa?.googleEmail).toBeNull()
+  })
+
+  it("test_vincular_google_email_normaliza_minusculas_e_resolve_case_insensitive", async () => {
+    const repo = drizzleUserRepo(db)
+    const googleEmail = `Vinculo-${larId}@Gmail.com`
+
+    await repo.vincularGoogleEmail(pessoaId, googleEmail)
+
+    const porEmail = await repo.obterPorEmail(pessoaEmail)
+    expect(porEmail?.googleEmail).toBe(googleEmail.toLowerCase())
+    const porGoogle = await repo.obterPorGoogleEmail(googleEmail.toUpperCase())
+    expect(porGoogle?.id).toBe(pessoaId)
+    // O avatar não é tocado pelo vínculo — identidade e avatar são independentes.
+    expect(porGoogle?.avatarKey).toBe(`identity/users/${pessoaId}/avatar`)
+  })
+
+  it("test_google_email_e_unico_no_banco", async () => {
+    const repo = drizzleUserRepo(db)
+    const [outra] = await db
+      .insert(users)
+      .values({
+        householdId: larId,
+        email: `outra-${larId}@teste.lar`,
+        nome: "Bea",
+        hue: 30,
+        inicial: "B",
+      })
+      .returning()
+    const compartilhado = `Vinculo-${larId}@Gmail.com` // já vinculado à `pessoaId` acima
+
+    await expect(repo.vincularGoogleEmail(outra.id, compartilhado)).rejects.toThrow()
+  })
 })

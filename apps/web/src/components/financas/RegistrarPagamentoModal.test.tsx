@@ -30,6 +30,7 @@ const PESSOAS = [
     id: "p-1",
     nome: "Thiago",
     email: "thiago@x.com",
+    googleEmail: null,
     hue: 210,
     inicial: "T",
     avatarKey: null,

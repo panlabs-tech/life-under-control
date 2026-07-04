@@ -4,11 +4,12 @@ import type { ImageFetcher } from "../ports/image-fetcher"
 import type { UserRepo } from "../ports/user-repo"
 
 /**
- * Use-case: espelha a foto do Google no R2 no login. Acha a Pessoa pelo e-mail,
- * baixa a `picture` e grava no bucket sob uma chave fixa por Pessoa, então seta
- * `avatarKey`. Nunca lança e nunca bloqueia o login: sem `pictureUrl`, e-mail
- * desconhecido, falha no download ou erro no R2 — o use-case simplesmente não
- * toca `avatarKey`, que fica como estava (nulo na 1ª vez → fallback inicial+hue).
+ * Use-case: espelha a foto do Google no R2 no login. Acha a Pessoa pelo e-mail
+ * Google **vinculado** (issue #94) — não pelo e-mail nominal semeado, que é
+ * fictício e não casa com a sessão. Baixa a `picture` e grava no bucket sob uma
+ * chave fixa por Pessoa, então seta `avatarKey`. Nunca lança e nunca bloqueia o
+ * login: sem `pictureUrl`, sem vínculo, e-mail desconhecido, falha no download ou
+ * erro no R2 — o use-case só não toca `avatarKey` (nulo → fallback inicial+hue).
  */
 export async function mirrorAvatar(
   userRepo: UserRepo,
@@ -19,7 +20,7 @@ export async function mirrorAvatar(
 ): Promise<void> {
   if (!pictureUrl) return
 
-  const pessoa = await userRepo.obterPorEmail(email)
+  const pessoa = await userRepo.obterPorGoogleEmail(email)
   if (!pessoa) return
 
   const baixada = await fetchImage(pictureUrl)

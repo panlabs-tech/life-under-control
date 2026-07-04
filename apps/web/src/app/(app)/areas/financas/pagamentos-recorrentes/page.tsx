@@ -24,11 +24,13 @@ import { descreverCompetencia, ehCompetenciaValida } from "@/core/domain/payment
 import { derivarCenarioMes } from "@/core/use-cases/derive-cenario-mes"
 import { listarPendenciasAnteriores } from "@/core/use-cases/derive-forma-competencia"
 import { derivarLinhasContas, type LinhaConta as Linha } from "@/core/use-cases/derive-linha-conta"
+import { localAuthBypass } from "@/core/use-cases/gate"
 import { getLogoUrl } from "@/core/use-cases/get-logo-url"
 import { getPainel } from "@/core/use-cases/get-painel"
 import { listAllPayments } from "@/core/use-cases/list-all-payments"
 import { listBills } from "@/core/use-cases/list-bills"
 import { resolveAvatares } from "@/core/use-cases/resolve-avatares"
+import { resolverUsuarioAutenticado } from "@/core/use-cases/resolve-usuario-autenticado"
 
 // Lê o banco a cada request: nada de prerender estático no build (sem DB lá).
 export const dynamic = "force-dynamic"
@@ -127,10 +129,14 @@ export default async function FinancasPage({
   // valor do último Lançamento, hoje, Pessoa logada (casada por e-mail).
   const linhaRegistrar = registrar ? linhas.find((linha) => linha.billId === registrar) : undefined
   const billRegistrar = linhaRegistrar ? billsPorId.get(linhaRegistrar.billId) : undefined
-  const emailLogado = session?.user?.email?.toLowerCase()
-  const pessoaLogada =
-    (emailLogado && lar.pessoas.find((p) => p.email.toLowerCase() === emailLogado)) ||
-    lar.pessoas[0]
+  // Autoria default: a Pessoa da sessão, resolvida pelo MESMO use-case da casca
+  // (issue #94) — casa pelo e-mail Google vinculado, nunca pela posição no Lar.
+  // A layout já garante a resolubilidade antes desta página renderizar.
+  const bypass = localAuthBypass(
+    process.env.NODE_ENV ?? "development",
+    process.env.LUC_LOCAL_AUTH_BYPASS,
+  )
+  const pessoaLogada = resolverUsuarioAutenticado(pessoasComAvatar, session?.user?.email, bypass)
   const lancamentosRegistrar = billRegistrar
     ? pagamentos
         .filter((p) => p.billId === billRegistrar.id)
@@ -237,7 +243,7 @@ export default async function FinancasPage({
             valor: ultimoRegistrar ? centavosParaCampo(ultimoRegistrar.valor) : "",
             dataPagamento: hoje,
             competencia: linhaRegistrar.competenciaVigente,
-            paidBy: pessoaLogada?.id ?? "",
+            paidBy: pessoaLogada.id,
           }}
           competenciasComLancamento={lancamentosRegistrar.map((p) => p.competencia)}
           contexto={`competência ${descreverCompetencia(linhaRegistrar.competenciaVigente, billRegistrar.recurrence)} · ${linhaRegistrar.frase} (${formatarDataBr(linhaRegistrar.vencimento).slice(0, 5)})`}

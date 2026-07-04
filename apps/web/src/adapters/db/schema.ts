@@ -19,6 +19,10 @@ export const users = pgTable("users", {
     .references(() => households.id),
   email: text("email").notNull().unique(),
   nome: text("nome").notNull(),
+  // E-mail Google vinculado (issue #94) — chave de autenticação/autoria, distinta
+  // do `email` nominal semeado. Nulo até o vínculo auditável (ADR-0004) ser
+  // aplicado; único (normalizado em minúsculas pela operação de vínculo).
+  googleEmail: text("google_email").unique(),
   hue: integer("hue").notNull(),
   inicial: text("inicial").notNull(),
   // Chave do avatar no R2 (foto do Google espelhada no login, #51). Nula até o

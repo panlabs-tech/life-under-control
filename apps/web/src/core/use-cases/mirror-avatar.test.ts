@@ -11,6 +11,7 @@ function pessoa(over: Partial<Pessoa> = {}): Pessoa {
     id: "u-1",
     nome: "Thiago",
     email: "thiago@casapanini.lar",
+    googleEmail: "thiago@gmail.com",
     hue: 211,
     inicial: "T",
     avatarKey: null,
@@ -29,18 +30,39 @@ describe("mirrorAvatar (Seam 1)", () => {
     const repo = fakeUserRepo([pessoa()])
     const store = fakeAttachmentStore()
 
-    await mirrorAvatar(repo, store, baixaOk, "thiago@casapanini.lar", "https://google/foto.jpg")
+    await mirrorAvatar(repo, store, baixaOk, "thiago@gmail.com", "https://google/foto.jpg")
 
     const atualizada = await repo.obterPorEmail("thiago@casapanini.lar")
     expect(atualizada?.avatarKey).toBe("identity/users/u-1/avatar")
     expect(store.chaves()).toContain("identity/users/u-1/avatar")
   })
 
+  it("test_resolve_pela_identidade_google_nao_pelo_email_nominal", async () => {
+    const repo = fakeUserRepo([pessoa()])
+    const store = fakeAttachmentStore()
+
+    // O e-mail nominal semeado não é a identidade — passar ele não espelha nada.
+    await mirrorAvatar(repo, store, baixaOk, "thiago@casapanini.lar", "https://google/foto.jpg")
+
+    const atualizada = await repo.obterPorEmail("thiago@casapanini.lar")
+    expect(atualizada?.avatarKey).toBeNull()
+    expect(store.chaves()).toHaveLength(0)
+  })
+
+  it("test_pessoa_sem_vinculo_google_nao_espelha", async () => {
+    const repo = fakeUserRepo([pessoa({ googleEmail: null })])
+    const store = fakeAttachmentStore()
+
+    await mirrorAvatar(repo, store, baixaOk, "thiago@gmail.com", "https://google/foto.jpg")
+
+    expect(store.chaves()).toHaveLength(0)
+  })
+
   it("test_falha_no_fetch_mantem_avatarkey_nulo", async () => {
     const repo = fakeUserRepo([pessoa()])
     const store = fakeAttachmentStore()
 
-    await mirrorAvatar(repo, store, baixaFalha, "thiago@casapanini.lar", "https://google/foto.jpg")
+    await mirrorAvatar(repo, store, baixaFalha, "thiago@gmail.com", "https://google/foto.jpg")
 
     const atualizada = await repo.obterPorEmail("thiago@casapanini.lar")
     expect(atualizada?.avatarKey).toBeNull()
@@ -56,7 +78,7 @@ describe("mirrorAvatar (Seam 1)", () => {
       return null
     }
 
-    await mirrorAvatar(repo, store, naoDeveriaChamar, "thiago@casapanini.lar", null)
+    await mirrorAvatar(repo, store, naoDeveriaChamar, "thiago@gmail.com", null)
 
     expect(chamou).toBe(false)
     const atualizada = await repo.obterPorEmail("thiago@casapanini.lar")
@@ -71,7 +93,7 @@ describe("mirrorAvatar (Seam 1)", () => {
     }
 
     await expect(
-      mirrorAvatar(repo, store, baixaOk, "thiago@casapanini.lar", "https://google/foto.jpg"),
+      mirrorAvatar(repo, store, baixaOk, "thiago@gmail.com", "https://google/foto.jpg"),
     ).resolves.toBeUndefined()
 
     const atualizada = await repo.obterPorEmail("thiago@casapanini.lar")
@@ -86,7 +108,7 @@ describe("mirrorAvatar (Seam 1)", () => {
     }
 
     await expect(
-      mirrorAvatar(repo, store, baixaOk, "thiago@casapanini.lar", "https://google/foto.jpg"),
+      mirrorAvatar(repo, store, baixaOk, "thiago@gmail.com", "https://google/foto.jpg"),
     ).resolves.toBeUndefined()
   })
 
@@ -95,7 +117,7 @@ describe("mirrorAvatar (Seam 1)", () => {
     const store = fakeAttachmentStore()
 
     await expect(
-      mirrorAvatar(repo, store, baixaOk, "estranho@fora.lar", "https://google/foto.jpg"),
+      mirrorAvatar(repo, store, baixaOk, "estranho@gmail.com", "https://google/foto.jpg"),
     ).resolves.toBeUndefined()
     expect(store.chaves()).toHaveLength(0)
   })
