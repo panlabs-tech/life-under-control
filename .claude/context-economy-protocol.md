@@ -12,3 +12,12 @@ Você está iniciando implementação. A meta é chegar ao primeiro teste RED co
 6. **Nunca releia output cru.** `.output` de subagente e dumps de `tool-results/` de MCP já viraram digest/preview — não os releia (a trava de Read bloqueia). Precisa do conteúdo? Re-consulte a fonte com pergunta dirigida.
 
 Por quê: medições de `/implement` reais mostraram a janela chegando a 92-160k no primeiro código. O dump dominante não foi leitura de arquivo "à toa" — foi **a narração do próprio agente** (~33k em dois turnos de prosa numa sessão) somada à **releitura de vizinhos que o digest já tinha visto**. Delegar, **embutir o vizinho no digest**, **ir direto ao RED** e **comprimir a prosa** atacam exatamente esses custos.
+
+## Checklist de fidelidade (antes de propor merge de UI)
+
+Só quando a issue referencia protótipo (detalhe em `docs/agents/workflow.md`, seção "Conferência de pixel"):
+
+- [ ] Resolvi o `sc-if`/estado computado do protótipo pra TODA divergência que vou afirmar ou corrigir?
+- [ ] Comparei termo e rótulo com o glossário — composição é do protótipo, vocabulário é do `CONTEXT.md`/`docs/design`?
+- [ ] Olhei o pixel (réplica com tokens reais ou screenshot), não só a suíte verde?
+- [ ] Relato de subagente virou achado só depois de verificação em primeira mão?
