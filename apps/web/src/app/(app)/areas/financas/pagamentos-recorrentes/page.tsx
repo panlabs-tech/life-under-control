@@ -25,11 +25,13 @@ import { derivarCenarioMes } from "@/core/use-cases/derive-cenario-mes"
 import { listarPendenciasAnteriores } from "@/core/use-cases/derive-forma-competencia"
 import { derivarLinhasContas } from "@/core/use-cases/derive-linha-conta"
 import { derivarPanoramaMensal } from "@/core/use-cases/derive-panorama-mensal"
+import { localAuthBypass } from "@/core/use-cases/gate"
 import { getLogoUrl } from "@/core/use-cases/get-logo-url"
 import { getPainel } from "@/core/use-cases/get-painel"
 import { listAllPayments } from "@/core/use-cases/list-all-payments"
 import { listBills } from "@/core/use-cases/list-bills"
 import { resolveAvatares } from "@/core/use-cases/resolve-avatares"
+import { resolverUsuarioAutenticado } from "@/core/use-cases/resolve-usuario-autenticado"
 
 // Lê o banco a cada request: nada de prerender estático no build (sem DB lá).
 export const dynamic = "force-dynamic"
@@ -122,10 +124,17 @@ export default async function FinancasPage({
   // valor do último Lançamento, hoje, Pessoa logada (casada por e-mail).
   const cardRegistrar = registrar ? cards.find((card) => card.billId === registrar) : undefined
   const billRegistrar = cardRegistrar ? billsPorId.get(cardRegistrar.billId) : undefined
-  const emailLogado = session?.user?.email?.toLowerCase()
-  const pessoaLogada =
-    (emailLogado && lar.pessoas.find((p) => p.email.toLowerCase() === emailLogado)) ||
-    lar.pessoas[0]
+  // Autoria default: a Pessoa da sessão, resolvida pelo MESMO use-case da casca
+  // (issue #94) — casa pelo e-mail Google vinculado, nunca pela posição no Lar.
+  // Sob bypass, ignora a sessão real (como a layout) pra operar contra o seed.
+  // Sem vínculo, `pessoaLogada` fica `undefined` e o modal deixa "quem pagou" em
+  // branco (o domínio exige a escolha) — nunca defaulta pra Pessoa errada.
+  const bypass = localAuthBypass(
+    process.env.NODE_ENV ?? "development",
+    process.env.LUC_LOCAL_AUTH_BYPASS,
+  )
+  const emailLogado = bypass ? undefined : session?.user?.email
+  const pessoaLogada = resolverUsuarioAutenticado(pessoasComAvatar, emailLogado, bypass)
   const lancamentosRegistrar = billRegistrar
     ? pagamentos
         .filter((p) => p.billId === billRegistrar.id)

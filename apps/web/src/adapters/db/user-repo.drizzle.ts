@@ -9,6 +9,7 @@ function paraDominio(u: typeof users.$inferSelect): Pessoa {
     id: u.id,
     nome: u.nome,
     email: u.email,
+    googleEmail: u.googleEmail,
     hue: u.hue,
     inicial: u.inicial,
     avatarKey: u.avatarKey,
@@ -29,8 +30,23 @@ export function drizzleUserRepo(db: Db = getDb()): UserRepo {
       return row ? paraDominio(row) : null
     },
 
+    async obterPorGoogleEmail(googleEmail: string): Promise<Pessoa | null> {
+      const [row] = await db
+        .select()
+        .from(users)
+        .where(sql`lower(${users.googleEmail}) = lower(${googleEmail})`)
+      return row ? paraDominio(row) : null
+    },
+
     async definirAvatarKey(userId: string, avatarKey: string): Promise<void> {
       await db.update(users).set({ avatarKey }).where(eq(users.id, userId))
+    },
+
+    async vincularGoogleEmail(userId: string, googleEmail: string): Promise<void> {
+      await db
+        .update(users)
+        .set({ googleEmail: googleEmail.toLowerCase() })
+        .where(eq(users.id, userId))
     },
   }
 }

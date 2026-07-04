@@ -9,10 +9,19 @@ export function fakeUserRepo(seed: Pessoa[] = []): UserRepo {
       const alvo = email.toLowerCase()
       return [...store.values()].find((p) => p.email.toLowerCase() === alvo) ?? null
     },
+    async obterPorGoogleEmail(googleEmail) {
+      const alvo = googleEmail.toLowerCase()
+      return [...store.values()].find((p) => p.googleEmail?.toLowerCase() === alvo) ?? null
+    },
     async definirAvatarKey(userId, avatarKey) {
       const pessoa = store.get(userId)
       if (!pessoa) return
       store.set(userId, { ...pessoa, avatarKey })
+    },
+    async vincularGoogleEmail(userId, googleEmail) {
+      const pessoa = store.get(userId)
+      if (!pessoa) return
+      store.set(userId, { ...pessoa, googleEmail: googleEmail.toLowerCase() })
     },
   }
 }

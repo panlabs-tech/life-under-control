@@ -7,7 +7,15 @@
 export type Pessoa = {
   id: string
   nome: string
+  /** E-mail nominal do Lar (seed). NÃO é a chave de autenticação — veja `googleEmail`. */
   email: string
+  /**
+   * E-mail Google vinculado (issue #94), chave de autenticação/autoria. `null`
+   * enquanto o vínculo auditável (ADR-0004: e-mail da allowlist) não foi aplicado.
+   * Separado de `email` de propósito: o seed é fictício; só o `googleEmail` casa
+   * com a sessão real. Nunca inferir a Pessoa pela posição na allowlist (ADR-0002).
+   */
+  googleEmail: string | null
   /** Matiz HSL (0–359) que identifica a Pessoa na UI. Persistido. */
   hue: number
   /** Letra de exibição (ex.: "T", "J"). */

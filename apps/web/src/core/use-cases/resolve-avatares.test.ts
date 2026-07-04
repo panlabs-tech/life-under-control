@@ -9,6 +9,7 @@ function pessoa(over: Partial<Pessoa> = {}): Pessoa {
     id: "u-1",
     nome: "Thiago",
     email: "thiago@casapanini.lar",
+    googleEmail: null,
     hue: 211,
     inicial: "T",
     avatarKey: null,
