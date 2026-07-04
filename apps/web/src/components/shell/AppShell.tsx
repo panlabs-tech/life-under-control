@@ -984,9 +984,9 @@ function ShellPersonBadge({ pessoa }: { pessoa: ShellPessoa }) {
       avatarUrl={pessoa.avatarUrl}
       inicial={pessoa.inicial}
       nome={pessoa.nome}
-      size={26}
+      size={32}
       colors={colors}
-      className="rounded-[8px]"
+      className="rounded-full"
     />
   )
 }

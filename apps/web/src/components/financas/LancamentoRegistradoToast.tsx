@@ -12,5 +12,11 @@ import { Toast } from "@/components/ds/Toast"
 export function LancamentoRegistradoToast({ mensagem }: { mensagem: string }) {
   const router = useRouter()
   const pathname = usePathname()
-  return <Toast mensagem={mensagem} onDismiss={() => router.replace(pathname, { scroll: false })} />
+  return (
+    <Toast
+      mensagem={mensagem}
+      comFechar
+      onDismiss={() => router.replace(pathname, { scroll: false })}
+    />
+  )
 }

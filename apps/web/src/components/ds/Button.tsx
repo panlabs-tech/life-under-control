@@ -10,8 +10,10 @@ const BASE =
 const VARIANTS: Record<ButtonVariant, string> = {
   primary:
     "border border-transparent bg-luc-accent font-bold text-luc-bg hover:bg-luc-accent-bright",
+  // Secundário do protótipo Final: borda strong que clareia no hover — nunca
+  // veste accent (ciano é do primário e de leitura ativa).
   secondary:
-    "border border-luc-border bg-luc-surface-2 text-luc-text hover:border-luc-accent hover:text-luc-accent",
+    "border border-luc-border-strong bg-luc-surface-2 text-luc-text hover:border-white/[0.18] hover:bg-white/[0.06]",
   ghost:
     "border border-transparent bg-transparent text-luc-text-2 hover:bg-luc-surface-2 hover:text-luc-text",
 }
