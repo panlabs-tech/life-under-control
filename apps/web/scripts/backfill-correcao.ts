@@ -42,7 +42,6 @@ import { getDb } from "@/adapters/db/client"
 import { drizzlePaymentRepo } from "@/adapters/db/payment-repo.drizzle"
 import {
   construirManifesto,
-  type LinhaPlanilha,
   lerNomeRecibo,
   type ReciboExtraido,
   somarMeses,
@@ -53,10 +52,20 @@ import {
   type PlanoCorrecaoConta,
   planejarCorrecaoConta,
   planejarRenamesArquivos,
+  shiftCampo,
   tabelaDeAdjudicacao,
 } from "@/core/domain/backfill-correcao"
+import type { Bill } from "@/core/domain/bill"
 import { aplicarCorrecaoBackfill } from "@/core/use-cases/aplicar-correcao-backfill"
-import { CATALOGO, chaveCategoria, HOUSEHOLD, RECIBOS_ROOT_DEFAULT } from "./backfill-catalog"
+import {
+  CATALOGO,
+  chaveCategoria,
+  HOUSEHOLD,
+  MARCADOR_BACKFILL,
+  MARCADOR_CORRECAO,
+  planilhaPorCategoria,
+  RECIBOS_ROOT_DEFAULT,
+} from "./backfill-catalog"
 
 const scriptsDir = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(scriptsDir, "../../..")
@@ -65,8 +74,6 @@ const dataDir = join(repoRoot, ".backfill")
 /** A raiz de trabalho (cópia dos comprovantes que PODE ser renomeada). */
 const WORK_ROOT =
   process.env.RECIBOS_ROOT ?? join(repoRoot, "tmp/financas/pagamentos-recorrentes/contas")
-const MARCADOR_RAIZ = ".competencia-corrigida.json"
-const MARCADOR_BACKFILL = "correcao-aplicada.json"
 const ARQ_ADJUDICACAO = join(dataDir, "adjudicacao.json")
 const ARQ_PROPOSTA = join(dataDir, "adjudicacao.proposta.json")
 
@@ -113,21 +120,43 @@ function lerRecibosPorArquivoJson(): Map<string, ReciboVisao[]> {
   return por
 }
 
-/** Soma `shift` meses a um campo `YYYY-MM` ou `YYYY-MM-DD`, preservando o resto. */
-function shiftCampo(valor: string, shift: number): string {
-  if (!/^\d{4}-\d{2}/.test(valor)) return valor
-  return `${somarMeses(valor.slice(0, 7), shift)}${valor.slice(7)}`
-}
-
 function centavos(v: number | null): string {
   return v === null ? "—" : `R$${(v / 100).toFixed(2)}`
+}
+
+/** Traduz uma competência da camada legada pelo shift adjudicado (camada já corrigida passa como está). */
+function traduzir(competencia: string, shift: number, jaCorrigida: boolean): string {
+  return jaCorrigida || shift === 0 ? competencia : somarMeses(competencia, shift)
+}
+
+/** Projeta o estado de prod de uma Conta na forma que o planejador consome. */
+function montarEstado(
+  bill: Bill,
+  payments: { id: string; competencia: string }[],
+  attachments: { id: string; paymentId: string; nomeOriginal: string }[],
+): EstadoContaCorrecao {
+  return {
+    bill: {
+      id: bill.id,
+      dueMonthOffset: bill.dueMonthOffset,
+      dueRuleDay: bill.dueRule.kind === "dia-fixo" ? bill.dueRule.day : null,
+      primeiraCompetencia: bill.primeiraCompetencia,
+      estado: bill.estado,
+    },
+    payments: payments.map((p) => ({ id: p.id, competencia: p.competencia })),
+    attachments: attachments.map((a) => ({
+      id: a.id,
+      paymentId: a.paymentId,
+      nomeOriginal: a.nomeOriginal,
+    })),
+  }
 }
 
 async function main() {
   const commit = process.argv.includes("--commit")
   console.log(`\n=== Correção de Competência (#124) — ${commit ? "COMMIT" : "DRY-RUN"} ===\n`)
 
-  const raizCorrigida = existsSync(join(WORK_ROOT, MARCADOR_RAIZ))
+  const raizCorrigida = existsSync(join(WORK_ROOT, MARCADOR_CORRECAO))
   const backfillCorrigido = existsSync(join(dataDir, MARCADOR_BACKFILL))
   console.log(`  Raiz de trabalho: ${WORK_ROOT}`)
   console.log(`  Camada arquivos: ${raizCorrigida ? "já corrigida (marcador)" : "legada"}`)
@@ -203,23 +232,17 @@ async function main() {
   const adjPorLabel = new Map(adjudicacao.map((a) => [a.label, a]))
 
   // ── Tabela de adjudicação (exceções do cross-check, com a tradução adjudicada) ──
-  const planilhaPorLabel = new Map<string, LinhaPlanilha[]>()
-  for (const l of controle) {
-    const chave = chaveCategoria(l.cat)
-    const lista = planilhaPorLabel.get(chave) ?? []
-    lista.push({ competencia: l.comp, valorCentavos: l.valorCents, status: l.status })
-    planilhaPorLabel.set(chave, lista)
-  }
+  const planilhaPorLabel = planilhaPorCategoria(controle)
   const excecoesManifesto = CATALOGO.flatMap((c) => {
     const shift = adjPorLabel.get(c.label)?.shift ?? 0
-    const planilha = (planilhaPorLabel.get(c.label) ?? []).map((l) =>
-      backfillCorrigido || shift === 0
-        ? l
-        : { ...l, competencia: somarMeses(l.competencia, shift) },
-    )
-    const recibos = (c.dirSlug ? (crusPorSlug.get(c.dirSlug) ?? []) : []).map((r) =>
-      raizCorrigida || shift === 0 ? r : { ...r, competencia: somarMeses(r.competencia, shift) },
-    )
+    const planilha = (planilhaPorLabel.get(c.label) ?? []).map((l) => ({
+      ...l,
+      competencia: traduzir(l.competencia, shift, backfillCorrigido),
+    }))
+    const recibos = (c.dirSlug ? (crusPorSlug.get(c.dirSlug) ?? []) : []).map((r) => ({
+      ...r,
+      competencia: traduzir(r.competencia, shift, raizCorrigida),
+    }))
     return tabelaDeAdjudicacao(
       construirManifesto({ billId: c.label, paidBy: c.paidBy, planilha, recibos }),
     )
@@ -266,35 +289,17 @@ async function main() {
       HOUSEHOLD,
       payments.map((p) => p.id),
     )
-    const estado: EstadoContaCorrecao = {
-      bill: {
-        id: bill.id,
-        dueMonthOffset: bill.dueMonthOffset,
-        dueRuleDay: bill.dueRule.kind === "dia-fixo" ? bill.dueRule.day : null,
-        primeiraCompetencia: bill.primeiraCompetencia,
-        estado: bill.estado,
-      },
-      payments: payments.map((p) => ({ id: p.id, competencia: p.competencia })),
-      attachments: attachments.map((a) => ({
-        id: a.id,
-        paymentId: a.paymentId,
-        nomeOriginal: a.nomeOriginal,
-      })),
-    }
+    const estado = montarEstado(bill, payments, attachments)
 
     // O conjunto-verdade: planilha ∪ recibos, ambos na competência real (a camada
     // ainda legada é traduzida pelo shift adjudicado; a corrigida entra como está).
     const verdade = new Set<string>()
     for (const l of planilhaPorLabel.get(c.label) ?? []) {
       if (l.status !== "Pago") continue
-      verdade.add(
-        backfillCorrigido || adj.shift === 0 ? l.competencia : somarMeses(l.competencia, adj.shift),
-      )
+      verdade.add(traduzir(l.competencia, adj.shift, backfillCorrigido))
     }
     for (const r of c.dirSlug ? (crusPorSlug.get(c.dirSlug) ?? []) : []) {
-      verdade.add(
-        raizCorrigida || adj.shift === 0 ? r.competencia : somarMeses(r.competencia, adj.shift),
-      )
+      verdade.add(traduzir(r.competencia, adj.shift, raizCorrigida))
     }
 
     const plano = planejarCorrecaoConta(
@@ -322,7 +327,11 @@ async function main() {
     if (plano.paymentUpdates.length > 3)
       console.log(`      … +${plano.paymentUpdates.length - 3} Lançamentos`)
 
-    // Renames da raiz de trabalho: mesma defasagem, mesma guarda.
+    // Renames da raiz de trabalho: mesma defasagem, mesma guarda. Deliberadamente
+    // NÃO condicionado à situação do plano: o marcador da raiz é global, então uma
+    // Conta inconsistente (prod intocado) ainda tem os arquivos corrigidos — senão
+    // eles seriam lidos como verdade errada para sempre sob a raiz marcada. O prod
+    // dela converge num re-run após o ajuste manual (comparação por conjunto).
     if (c.dirSlug && adj.shift !== 0) {
       const arquivos = (crusPorSlug.get(c.dirSlug) ?? []).map((r) => r.arquivo)
       renames.push(...planejarRenamesArquivos(arquivos, adj.shift, raizCorrigida))
@@ -350,6 +359,21 @@ async function main() {
     )
   }
 
+  // Pré-voo dos renames ANTES de tocar o prod: destino que já existe no disco e
+  // NÃO é fonte de outro rename do plano seria sobrescrito (renameSync não avisa)
+  // — aborta com tudo intacto para investigação.
+  const fontesDeRename = new Set(renames.map((r) => r.de))
+  const conflitos = renames.filter(
+    (r) => !fontesDeRename.has(r.para) && existsSync(join(WORK_ROOT, r.para)),
+  )
+  if (conflitos.length > 0) {
+    throw new Error(
+      `destino de rename já existe fora do plano (seria sobrescrito): ${conflitos
+        .map((r) => r.para)
+        .join(", ")} — investigue a raiz de trabalho antes de re-rodar`,
+    )
+  }
+
   const resultado = await aplicarCorrecaoBackfill(
     billRepo,
     paymentRepo,
@@ -360,7 +384,8 @@ async function main() {
   console.log(
     `\n  Aplicado: ${resultado.contasAplicadas} Contas · payments ${resultado.paymentsAtualizados} · ` +
       `anexos ${resultado.anexosRenomeados} · bills ${resultado.billsAtualizadas} · ` +
-      `encerradas ${resultado.encerradas} · inconsistentes puladas ${resultado.contasInconsistentes}`,
+      `encerradas ${resultado.encerradas} · já corrigidas ${resultado.contasCorrigidas} · ` +
+      `inconsistentes puladas ${resultado.contasInconsistentes}`,
   )
 
   let renomeados = 0
@@ -376,14 +401,14 @@ async function main() {
     renomeados += 1
   }
   if (renames.length > 0 || !raizCorrigida) {
-    escreverJson(join(WORK_ROOT, MARCADOR_RAIZ), {
+    escreverJson(join(WORK_ROOT, MARCADOR_CORRECAO), {
       aplicadoEm: new Date().toISOString(),
       shifts: Object.fromEntries(
         adjudicacao.filter((a) => a.shift !== 0).map((a) => [a.label, a.shift]),
       ),
     })
   }
-  console.log(`  Arquivos renomeados: ${renomeados} (marcador ${MARCADOR_RAIZ} gravado)`)
+  console.log(`  Arquivos renomeados: ${renomeados} (marcador ${MARCADOR_CORRECAO} gravado)`)
 
   if (!backfillCorrigido) {
     const renamePorDe = new Map(renames.map((r) => [r.de, r.para]))
@@ -412,13 +437,7 @@ async function main() {
   // ── Verificação pós-commit: contagens + replano vazio contra as camadas
   // recém-corrigidas (re-lidas do disco — nada de verdade tautológica) ───────────
   const controleV2 = lerJson<LinhaControleRaw[]>(join(dataDir, "controle.json"))
-  const planilhaV2 = new Map<string, LinhaPlanilha[]>()
-  for (const l of controleV2) {
-    const chave = chaveCategoria(l.cat)
-    const lista = planilhaV2.get(chave) ?? []
-    lista.push({ competencia: l.comp, valorCentavos: l.valorCents, status: l.status })
-    planilhaV2.set(chave, lista)
-  }
+  const planilhaV2 = planilhaPorCategoria(controleV2)
   const compsV2PorSlug = new Map<string, string[]>()
   for (const lista of lerRecibosPorArquivoJson().values()) {
     for (const r of lista) {

@@ -46,6 +46,16 @@ function mesesDe(competencia: string): number {
   return ano * 12 + (mes - 1)
 }
 
+/**
+ * Soma `shift` meses a um campo `YYYY-MM` ou `YYYY-MM-DD`, preservando o sufixo
+ * (o dia, quando houver). Valor fora do formato passa intocado — a regeneração
+ * do `.backfill/` não pode corromper campo que não é competência.
+ */
+export function shiftCampo(valor: string, shift: number): string {
+  if (!/^\d{4}-\d{2}/.test(valor)) return valor
+  return `${somarMeses(valor.slice(0, 7), shift)}${valor.slice(7)}`
+}
+
 /** A moda de uma lista; empate decide por menor valor absoluto, depois menor valor. */
 function moda(valores: number[]): number | null {
   if (valores.length === 0) return null
@@ -306,7 +316,7 @@ export function planejarRenamesArquivos(
 ): { de: string; para: string }[] {
   if (raizCorrigida || offsetNomeLegado === 0) return []
 
-  const renames: { de: string; para: string }[] = []
+  const renames: { de: string; para: string; competencia: string }[] = []
   for (const arquivo of arquivos) {
     const nome = lerNomeRecibo(arquivo)
     if (!nome) continue
@@ -317,7 +327,17 @@ export function planejarRenamesArquivos(
       partes[1] = nova.slice(0, 4)
       para = partes.join("/")
     }
-    if (para !== arquivo) renames.push({ de: arquivo, para })
+    if (para !== arquivo) renames.push({ de: arquivo, para, competencia: nome.competencia })
   }
-  return renames
+
+  // Ordem de aplicação segura para meses consecutivos: shift positivo renomeia do
+  // mês mais recente para o mais antigo (o destino de cada rename já foi desocupado
+  // pelo anterior); shift negativo, o inverso — mesma razão do sort decrescente dos
+  // paymentUpdates. Sem isso, `202301→202302` sobrescreveria o comprovante real.
+  renames.sort((a, b) =>
+    offsetNomeLegado > 0
+      ? b.competencia.localeCompare(a.competencia)
+      : a.competencia.localeCompare(b.competencia),
+  )
+  return renames.map(({ de, para }) => ({ de, para }))
 }

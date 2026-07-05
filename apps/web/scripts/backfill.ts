@@ -30,7 +30,6 @@ import {
   competenciaDoRecibo,
   construirManifesto,
   type LinhaManifesto,
-  type LinhaPlanilha,
   lerNomeRecibo,
   primeiraCompetenciaDe,
   type ReciboExtraido,
@@ -39,8 +38,10 @@ import { createBill } from "@/core/use-cases/create-bill"
 import { importBackfill } from "@/core/use-cases/import-backfill"
 import {
   CATALOGO,
-  chaveCategoria,
   HOUSEHOLD,
+  MARCADOR_BACKFILL,
+  MARCADOR_CORRECAO,
+  planilhaPorCategoria,
   RECIBOS_ROOT_DEFAULT,
   tipoMimeDe,
 } from "./backfill-catalog"
@@ -49,13 +50,6 @@ const scriptsDir = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(scriptsDir, "../../..")
 const dataDir = join(repoRoot, ".backfill")
 const RECIBOS_ROOT = process.env.RECIBOS_ROOT ?? RECIBOS_ROOT_DEFAULT
-
-/**
- * Marcador da guarda anti-double-shift (#124): presente na raiz de comprovantes,
- * os nomes já são a competência-verdade e a leitura NÃO traduz pelo offset legado.
- * A raiz do OneDrive nunca o terá (originais intocados, nomes defasados).
- */
-export const MARCADOR_CORRECAO = ".competencia-corrigida.json"
 
 /** Linha da planilha como exportada do xlsx. */
 type LinhaControle = { comp: string; cat: string; status: string; valorCents: number }
@@ -91,13 +85,13 @@ const OFFSET_POR_SLUG = new Map(
 )
 
 /**
- * Indexa os recibos por slug da pasta (a Conta de origem), já como `ReciboExtraido`
- * — com a competência **traduzida** pelo offset legado da Conta quando a raiz é
- * legada (`raizCorrigida` vem do marcador `.competencia-corrigida.json`).
+ * Indexa os recibos por slug da pasta (a Conta de origem), já como `ReciboExtraido`.
+ * Com `semTraducao` os nomes entram como estão; senão a competência é traduzida
+ * pelo offset legado da Conta (raiz legada do OneDrive pós-correção).
  */
 function recibosPorConta(
   recibos: ReciboVisao[],
-  raizCorrigida: boolean,
+  semTraducao: boolean,
 ): Map<string, ReciboExtraido[]> {
   const por = new Map<string, ReciboExtraido[]>()
   for (const r of recibos) {
@@ -107,7 +101,7 @@ function recibosPorConta(
       continue
     }
     const offset = OFFSET_POR_SLUG.get(nome.contaSlug) ?? 0
-    const traduzido = competenciaDoRecibo(r.arquivo, offset, raizCorrigida)
+    const traduzido = competenciaDoRecibo(r.arquivo, offset, semTraducao)
     if (!traduzido) continue
     const extraido: ReciboExtraido = {
       arquivo: r.arquivo,
@@ -121,18 +115,6 @@ function recibosPorConta(
     const lista = por.get(nome.contaSlug) ?? []
     lista.push(extraido)
     por.set(nome.contaSlug, lista)
-  }
-  return por
-}
-
-/** Indexa as linhas da planilha por chave de categoria (sem emoji). */
-function planilhaPorCategoria(linhas: LinhaControle[]): Map<string, LinhaPlanilha[]> {
-  const por = new Map<string, LinhaPlanilha[]>()
-  for (const l of linhas) {
-    const chave = chaveCategoria(l.cat)
-    const lista = por.get(chave) ?? []
-    lista.push({ competencia: l.comp, valorCentavos: l.valorCents, status: l.status })
-    por.set(chave, lista)
   }
   return por
 }
@@ -153,14 +135,23 @@ async function main() {
   console.log(`\n=== Backfill Finanças (#24) — ${commit ? "COMMIT" : "DRY-RUN"} ===\n`)
 
   const raizCorrigida = existsSync(join(RECIBOS_ROOT, MARCADOR_CORRECAO))
+  const correcaoAplicada = existsSync(join(dataDir, MARCADOR_BACKFILL))
+  // O manifesto tem de falar o MESMO espaço de competência que o prod e a planilha.
+  // Pré-correção (#125 ainda não rodou) tudo é legado: nomes entram como estão —
+  // traduzir só os recibos dessincronizaria o cross-check (planilha × recibo com 1
+  // mês de diferença) e um manifesto na verdade duplicaria Lançamentos no prod
+  // legado (a idempotência casa por billId+competência). Pós-correção, prod e
+  // planilha estão na verdade: raiz legada (OneDrive) traduz pelo offset do
+  // catálogo; raiz corrigida (marcador) já está na verdade.
+  const semTraducao = raizCorrigida || !correcaoAplicada
   console.log(
-    raizCorrigida
-      ? "  Raiz corrigida (marcador presente): nomes lidos como estão, sem tradução.\n"
-      : "  Raiz legada: nome → competência traduzido pelo offset legado do catálogo.\n",
+    semTraducao
+      ? `  Nomes lidos como estão (${raizCorrigida ? "raiz corrigida" : "correção #124 ainda não aplicada"}).\n`
+      : "  Raiz legada pós-correção: nome → competência traduzido pelo offset do catálogo.\n",
   )
 
   const controle = lerJson<LinhaControle[]>(join(dataDir, "controle.json"))
-  const recibos = recibosPorConta(lerRecibos(), raizCorrigida)
+  const recibos = recibosPorConta(lerRecibos(), semTraducao)
   const planilha = planilhaPorCategoria(controle)
 
   // Resolve o billId de cada Conta: em commit cadastra (idempotente por nome); em

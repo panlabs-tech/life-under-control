@@ -6,6 +6,7 @@ import {
   planejarCorrecaoConta,
   planejarRenamesArquivos,
   type RegraCorrecaoConta,
+  shiftCampo,
   tabelaDeAdjudicacao,
 } from "./backfill-correcao"
 
@@ -390,7 +391,42 @@ describe("planejarRenamesArquivos (Seam 3 — tmp/ renomeado para a verdade)", (
     expect(planejarRenamesArquivos(["condominio/2024/condominio-202401.jpeg"], 1, true)).toEqual([])
   })
 
+  it("test_meses_consecutivos_renomeiam_do_mais_recente_para_o_mais_antigo", () => {
+    // Aplicados em ordem, os renames não podem sobrescrever o comprovante do mês
+    // seguinte: com shift +1, o mês mais alto desocupa o destino antes.
+    const renames = planejarRenamesArquivos(
+      [
+        "condominio/2023/condominio-202301.jpeg",
+        "condominio/2023/condominio-202302.jpeg",
+        "condominio/2023/condominio-202303.jpeg",
+      ],
+      1,
+      false,
+    )
+
+    expect(renames.map((r) => r.de)).toEqual([
+      "condominio/2023/condominio-202303.jpeg",
+      "condominio/2023/condominio-202302.jpeg",
+      "condominio/2023/condominio-202301.jpeg",
+    ])
+  })
+
   it("test_offset_zero_nao_renomeia_nada", () => {
     expect(planejarRenamesArquivos(["luz/2023/conta-luz-202310.jpeg"], 0, false)).toEqual([])
+  })
+})
+
+describe("shiftCampo (regeneração do .backfill/ na competência-verdade)", () => {
+  it("test_soma_meses_em_campo_yyyy_mm_com_virada_de_ano", () => {
+    expect(shiftCampo("2024-12", 1)).toBe("2025-01")
+  })
+
+  it("test_preserva_o_dia_em_campo_yyyy_mm_dd", () => {
+    expect(shiftCampo("2024-12-15", 1)).toBe("2025-01-15")
+  })
+
+  it("test_valor_fora_do_formato_passa_intocado", () => {
+    expect(shiftCampo("Pago", 1)).toBe("Pago")
+    expect(shiftCampo("", 1)).toBe("")
   })
 })
