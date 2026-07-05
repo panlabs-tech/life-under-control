@@ -80,6 +80,11 @@ function montarLinha(
     competenciaVigente,
     calendar,
   )
+  // Valor pago = soma **exata** de todas as baixas da Competência vigente, inclusive
+  // partidas (CONTEXT.md #6). Nota: a célula do sinaleiro/sparkline vem de
+  // `gridOcorrencias`, que ainda toma UMA baixa por Competência (`.find`) — num mês
+  // de baixa partida a coluna Valor (somada) pode superar o ponto do sparkline
+  // (uma só baixa). Limitação pré-existente do grid, não desta seção; ver #127-follow-up.
   const baixas = seus.filter((p) => p.competencia === competenciaVigente)
   const total = baixas.length > 0 ? baixas.reduce((soma, p) => soma + p.valor, 0) : null
   const quitada = total != null

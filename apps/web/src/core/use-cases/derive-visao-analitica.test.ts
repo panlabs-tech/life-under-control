@@ -153,6 +153,49 @@ describe("derivarVisaoAnaliticaContas (Seam 1)", () => {
     expect(aberta.frase).toBe("vence em 7 dias")
   })
 
+  it("test_valor_ausente_sem_historico_nao_inventa_numero", () => {
+    // Conta nova (vigente desde julho), sem nenhum Lançamento: em aberto sem base —
+    // valor é ausência explícita, nunca R$ 0,00 (CONTEXT.md #4/#5).
+    const nova = billBase({ id: "b-nova", primeiraCompetencia: "2026-07" })
+    const l = linha(derivarVisaoAnaliticaContas(clock("2026-07-15"), cal, [nova], []), "b-nova")
+    expect(l.valor).toEqual({ estado: "ausente" })
+    expect(l.media).toBeNull()
+  })
+
+  it("test_conta_nao_mensal_aparece_junto_das_mensais", () => {
+    // a anual (fora de fase em julho) não some — entra ao lado da mensal.
+    const mensal = billBase({ id: "b-mensal" })
+    const anual = billBase({ id: "b-anual", recurrence: { intervalMonths: 12, anchorMonth: 1 } })
+    const linhas = derivarVisaoAnaliticaContas(clock("2026-07-10"), cal, [mensal, anual], [])
+    expect(new Set(linhas.map((l) => l.billId))).toEqual(new Set(["b-mensal", "b-anual"]))
+  })
+
+  it("test_autoria_e_de_quem_deu_a_ultima_baixa_da_vigente", () => {
+    // baixa partida na vigente: a autoria é a da baixa mais recente por data.
+    const pagos = [
+      pagamento({
+        id: "p-a",
+        competencia: "2026-07",
+        valor: 3000,
+        dataPagamento: "2026-07-05",
+        paidBy: "thiago",
+      }),
+      pagamento({
+        id: "p-b",
+        competencia: "2026-07",
+        valor: 2000,
+        dataPagamento: "2026-07-08",
+        paidBy: "jakeline",
+      }),
+    ]
+    const l = linha(
+      derivarVisaoAnaliticaContas(clock("2026-07-10"), cal, [billBase()], pagos),
+      "bill-1",
+    )
+    expect(l.valor).toEqual({ estado: "pago", total: 5000 })
+    expect(l.autoria).toBe("jakeline")
+  })
+
   it("test_conta_jovem_tem_fora_vigencia_no_sinaleiro", () => {
     const jovem = billBase({ id: "b-jovem", primeiraCompetencia: "2026-05" })
     const l = linha(derivarVisaoAnaliticaContas(clock("2026-07-10"), cal, [jovem], []), "b-jovem")
