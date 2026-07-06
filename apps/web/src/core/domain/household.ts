@@ -37,6 +37,14 @@ export type Lar = {
   pessoas: Pessoa[]
 }
 
+/** A Pessoa alvo não pertence ao Lar informado — invariante compartilhada por todo vínculo (Google, WhatsApp). */
+export class PessoaForaDoLarError extends Error {
+  constructor(pessoaId: string) {
+    super(`A Pessoa ${pessoaId} não pertence ao Lar`)
+    this.name = "PessoaForaDoLarError"
+  }
+}
+
 /** Par de cores (texto/fundo) da Pessoa, derivado do hue no padrão do sistema de design. */
 export type CoresPessoa = { fg: string; bg: string }
 

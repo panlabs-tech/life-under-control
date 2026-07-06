@@ -31,6 +31,7 @@ export function VincularWhatsappForm({ whatsappPhone }: { whatsappPhone: string 
         <label htmlFor={`${id}-telefone`} className="flex flex-col gap-1.5">
           <span className="font-medium text-luc-text-2 text-sm">Número do WhatsApp</span>
           <input
+            key={whatsappPhone ?? "sem-vinculo"}
             id={`${id}-telefone`}
             name="telefone"
             type="tel"

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest"
-import type { Pessoa } from "../domain/household"
+import { type Pessoa, PessoaForaDoLarError } from "../domain/household"
 import { fakeUserRepo } from "./user-repo.fake"
-import { PessoaForaDoLarError } from "./vincular-google"
 import {
   desvincularTelefone,
   TelefoneEmConflitoError,

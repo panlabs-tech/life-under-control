@@ -1,7 +1,6 @@
-import type { Pessoa } from "../domain/household"
+import { type Pessoa, PessoaForaDoLarError } from "../domain/household"
 import { normalizarTelefoneE164 } from "../domain/telefone"
 import type { UserRepo } from "../ports/user-repo"
-import { PessoaForaDoLarError } from "./vincular-google"
 
 /**
  * Operação de vínculo Pessoa ↔ WhatsApp (issue #152, ADR-0012). Mesma forma do

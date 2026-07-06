@@ -1,10 +1,8 @@
+import { pessoaLogada } from "@/adapters/auth/pessoa-logada"
 import { drizzleHouseholdRepo } from "@/adapters/db/household-repo.drizzle"
-import { auth } from "@/auth"
 import { PageHeader } from "@/components/ds/PageHeader"
 import { VincularWhatsappForm } from "@/components/whatsapp/VincularWhatsappForm"
-import { localAuthBypass } from "@/core/use-cases/gate"
 import { getPainel } from "@/core/use-cases/get-painel"
-import { resolverUsuarioAutenticado } from "@/core/use-cases/resolve-usuario-autenticado"
 
 export const dynamic = "force-dynamic"
 
@@ -15,12 +13,7 @@ export const dynamic = "force-dynamic"
  */
 export default async function WhatsappPage() {
   const { lar } = await getPainel(drizzleHouseholdRepo())
-  const bypass = localAuthBypass(
-    process.env.NODE_ENV ?? "development",
-    process.env.LUC_LOCAL_AUTH_BYPASS,
-  )
-  const email = bypass ? undefined : (await auth())?.user?.email
-  const pessoa = resolverUsuarioAutenticado(lar.pessoas, email, bypass)
+  const pessoa = await pessoaLogada(lar.pessoas)
 
   return (
     <div className="luc-page-gutter py-7 lg:py-7">

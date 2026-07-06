@@ -1,13 +1,10 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { pessoaLogada } from "@/adapters/auth/pessoa-logada"
 import { drizzleHouseholdRepo } from "@/adapters/db/household-repo.drizzle"
 import { drizzleUserRepo } from "@/adapters/db/user-repo.drizzle"
-import { auth } from "@/auth"
-import type { Pessoa } from "@/core/domain/household"
-import { localAuthBypass } from "@/core/use-cases/gate"
 import { getPainel } from "@/core/use-cases/get-painel"
-import { resolverUsuarioAutenticado } from "@/core/use-cases/resolve-usuario-autenticado"
 import {
   desvincularTelefone,
   TelefoneEmConflitoError,
@@ -19,21 +16,6 @@ import {
 export type WhatsappFormState = { erro?: string }
 
 const ROTA_WHATSAPP = "/whatsapp"
-
-/**
- * A Pessoa logada, resolvida do mesmo jeito da casca (issue #94): casa pelo
- * e-mail Google vinculado. `undefined` (sessão real sem vínculo) nunca cai na
- * 1ª Pessoa — diferente do upload de comprovante, aqui é autorização "só o
- * próprio" sobre a identidade da própria Pessoa, não um FK secundário.
- */
-async function pessoaLogada(pessoas: Pessoa[]): Promise<Pessoa | undefined> {
-  const bypass = localAuthBypass(
-    process.env.NODE_ENV ?? "development",
-    process.env.LUC_LOCAL_AUTH_BYPASS,
-  )
-  const email = bypass ? undefined : (await auth())?.user?.email
-  return resolverUsuarioAutenticado(pessoas, email, bypass)
-}
 
 /** Server action: vincula/troca o WhatsApp da Pessoa logada (nunca de outra). */
 export async function vincularMeuWhatsapp(
