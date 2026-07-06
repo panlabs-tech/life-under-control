@@ -16,6 +16,11 @@ backfill-manifest*.json
 .env.local
 .env.*.local
 !.env.example
+# Exceção: o .env.local do web só tem valores de DEV (Postgres/MinIO locais,
+# AUTH_SECRET descartável — os mesmos do docker-compose.yml). É rastreado de
+# propósito para que `pnpm --filter @luc/web dev` funcione num clone novo sem
+# passo manual. Nunca ponha segredo de produção nele (esses vivem no .env).
+!/apps/web/.env.local
 .mcp.json
 .codex/config.toml
 .claude/settings.local.json
