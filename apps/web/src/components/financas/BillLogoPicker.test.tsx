@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import "@testing-library/jest-dom/vitest"
-import { cleanup, render, screen, waitFor } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
@@ -91,5 +91,19 @@ describe("BillLogoPicker", () => {
 
     await waitFor(() => expect(refresh).toHaveBeenCalledOnce())
     expect(removerLogoConta).toHaveBeenCalledWith("bill-1")
+  })
+
+  it("test_variante_compacta_mostra_o_logo_pelo_tile_unico_escurecido", () => {
+    const { container } = render(
+      <BillLogoPicker billId="bill-1" icon="wifi" logoUrl="https://r2.fake/x" variant="compacto" />,
+    )
+
+    // #139: o swatch do logo personalizado passa pelo tile único, levemente escurecido.
+    const img = container.querySelector("img") as HTMLImageElement
+    expect(img).toHaveClass("brightness-90")
+
+    // URL assinada que expira não trava mais num <img> quebrado: cai no ícone.
+    fireEvent.error(img)
+    expect(container.querySelector("img")).toBeNull()
   })
 })

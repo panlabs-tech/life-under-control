@@ -10,7 +10,7 @@ import type { GridCelula } from "@/core/use-cases/derive-bill-card"
 import type { ClassificacaoValor } from "@/core/use-cases/derive-mapa-ano"
 import type { LinhaAnalitica } from "@/core/use-cases/derive-visao-analitica"
 import { GRID } from "./BillCard"
-import { BillIcon } from "./BillIcon"
+import { BillLogoTile } from "./BillLogoTile"
 import { ESTADO_MES } from "./estado-mes"
 
 /**
@@ -285,14 +285,7 @@ function LinhaTabela({
         className="sticky left-0 z-10 border-luc-border border-t bg-luc-surface-2 px-3 py-2.5 pl-4 sm:pl-3"
       >
         <span className="flex items-center gap-2.5">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-luc-md bg-luc-surface-3 text-luc-text-2">
-            {logoUrl ? (
-              // biome-ignore lint/performance/noImgElement: logo presign local, sem loader do Next
-              <img src={logoUrl} alt="" className="h-full w-full object-cover" />
-            ) : (
-              <BillIcon name={icon} size={16} />
-            )}
-          </span>
+          <BillLogoTile icon={icon} logoUrl={logoUrl} size={32} iconSize={16} />
           <span className="flex min-w-0 flex-col">
             <Link
               href={`/areas/financas/pagamentos-recorrentes/${linha.billId}`}

@@ -1,18 +1,11 @@
-import { BillIcon } from "@/components/financas/BillIcon"
+import { BillLogoTile } from "@/components/financas/BillLogoTile"
 
 /**
  * Chip 28×28 do header dos modais compactos (Final): o logo da Conta quando
- * existe, senão o ícone do catálogo, sempre no mesmo quadrado accent raio 8.
+ * existe, senão o ícone do catálogo — renderizado pelo tile único (#139), no
+ * mesmo padrão neutro e levemente escurecido de toda a aplicação. Antes o chip
+ * era ciano (accent); o tile é sempre neutro, ciano fica reservado pra ação.
  */
 export function BillHeaderChip({ icon, logoUrl }: { icon: string; logoUrl: string | null }) {
-  return (
-    <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-[8px] bg-luc-accent-12 text-luc-accent-bright">
-      {logoUrl ? (
-        // biome-ignore lint/performance/noImgElement: URL assinada volátil; sem domínio fixo pro next/image
-        <img src={logoUrl} alt="" className="h-full w-full object-cover" />
-      ) : (
-        <BillIcon name={icon} size={15} />
-      )}
-    </span>
-  )
+  return <BillLogoTile icon={icon} logoUrl={logoUrl} size={28} iconSize={15} />
 }

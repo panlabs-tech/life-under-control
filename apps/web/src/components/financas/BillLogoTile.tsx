@@ -51,7 +51,10 @@ export function BillLogoTile({
             alt=""
             onLoad={() => setCarregado(true)}
             onError={() => setFalhou(true)}
-            className={`h-full w-full object-cover transition-opacity duration-150 ${
+            // `brightness-90`: o "levemente escurecido" (#139) mora aqui, uma vez
+            // só — todo logo customizado assenta no mesmo padrão visual, sem
+            // clarão fora do resto da UI, em qualquer site que reuse o tile.
+            className={`h-full w-full object-cover brightness-90 transition-opacity duration-150 ${
               carregado ? "opacity-100" : "opacity-0"
             }`}
           />
