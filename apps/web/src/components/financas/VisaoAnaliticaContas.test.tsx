@@ -88,6 +88,20 @@ describe("VisaoAnaliticaContas (Seam 2)", () => {
     expect(screen.getByText("todo dia 10")).toBeInTheDocument()
   })
 
+  it("test_logo_da_conta_via_tile_unico_escurecido_com_fallback_no_erro", () => {
+    const { container } = render(
+      <VisaoAnaliticaContas itens={[item({ logoUrl: "https://r2.fake/x" })]} />,
+    )
+
+    // #139: a célula-identidade renderiza o logo pelo tile único, levemente escurecido.
+    const img = container.querySelector("img") as HTMLImageElement
+    expect(img).toHaveClass("brightness-90")
+
+    // logo assinado que expira cai no ícone — o <img> cru da tabela não tinha onError.
+    fireEvent.error(img)
+    expect(container.querySelector("img")).toBeNull()
+  })
+
   it("test_sinaleiro_doze_celulas_com_rotulo_acessivel", () => {
     render(<VisaoAnaliticaContas itens={[item()]} />)
     const celulas = screen.getAllByTestId("sinaleiro-cell")

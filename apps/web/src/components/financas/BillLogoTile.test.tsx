@@ -30,6 +30,14 @@ describe("BillLogoTile", () => {
     expect(tile?.className).toContain("bg-white/")
   })
 
+  it("test_logo_recebe_o_escurecimento_leve_uniforme", () => {
+    const { container } = render(<BillLogoTile icon="wifi" logoUrl="https://r2.fake/logo" />)
+
+    // O tratamento "levemente escurecido" (#139) vive uma vez, aqui no tile: todo
+    // logo customizado aparece dentro do mesmo padrão, sem clarão fora do resto da UI.
+    expect(container.querySelector("img")).toHaveClass("brightness-90")
+  })
+
   it("test_tile_nunca_ganha_ciano_com_ou_sem_logo", () => {
     const semLogo = render(<BillLogoTile icon="wifi" logoUrl={null} />)
     expect(semLogo.container.firstElementChild?.className).not.toContain("bg-luc-accent-12")

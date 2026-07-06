@@ -103,10 +103,7 @@ export function BillLogoPicker({
       <div className="flex flex-col gap-2">
         {logoUrl && (
           <div className="flex items-center gap-2.5 rounded-[9px] border border-luc-accent/[0.32] bg-luc-accent-06 px-[11px] py-[9px]">
-            <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center overflow-hidden rounded-[8px] bg-white/[0.05]">
-              {/* biome-ignore lint/performance/noImgElement: URL assinada volátil; sem domínio fixo pro next/image */}
-              <img src={logoUrl} alt="" className="h-full w-full object-cover" />
-            </span>
+            <BillLogoTile icon={icon} logoUrl={logoUrl} size={34} iconSize={18} />
             <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-luc-text">
               Logo personalizado
             </span>
