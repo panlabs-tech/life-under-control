@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev",
+    "dev": "env -u DATABASE_URL -u R2_ENDPOINT -u R2_ACCOUNT_ID -u R2_ACCESS_KEY_ID -u R2_SECRET_ACCESS_KEY -u R2_BUCKET -u GOOGLE_CLIENT_ID -u GOOGLE_CLIENT_SECRET -u AUTH_SECRET next dev",
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",

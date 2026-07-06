@@ -57,7 +57,12 @@ O projeto **não usa** `drizzle-kit migrate`/`push` para aplicar — a fonte ún
 
 ## Hazard: o `.env` da raiz aponta pra produção
 
-O `.env` da raiz (e o symlink `apps/web/.env → ../../.env`) guarda **segredos de produção reais** — `DATABASE_URL` do Coolify, credenciais Google e R2. O fluxo local acima é imune a ele: `next dev` deixa o `.env.local` sobrepor tudo que importa, e o `db:migrate` fixa a URL local na própria linha de comando (o `--env-file` do Node não sobrepõe env já exportado — por isso a atribuição inline). Ainda assim:
+O `.env` da raiz (e o symlink `apps/web/.env → ../../.env`) guarda **segredos de produção reais** — `DATABASE_URL` do Coolify, credenciais Google e R2. O vazamento entra por dois caminhos, e há uma defesa para cada:
+
+- **Por arquivo:** o Next carrega tanto `.env.local` quanto o `.env` (symlink de prod), mas `.env.local` **sobrepõe** o `.env` na ordem de arquivos do Next — os valores de dev vencem sem esforço.
+- **Por variável exportada:** se um `DATABASE_URL` de prod já está **exportado** no shell (hábito de "carregar o `.env`", um túnel, o modo como o editor é aberto), ele bate **qualquer** arquivo — o Next não sobrepõe o que já está em `process.env`, e o app conecta em prod (que do host nem resolve: `getaddrinfo EAI_AGAIN`). Contra isso, os scripts limpam a var herdada antes de subir: `db:migrate` fixa a URL local inline (`DATABASE_URL=… node migrate.mjs`) e `dev` faz `env -u DATABASE_URL … next dev`. É por isso que o loop diário funciona mesmo com o shell "sujo" — mas um `next dev` **cru** (fora do script) volta a vazar; nesse caso, `unset DATABASE_URL` antes.
+
+Ainda assim:
 
 - **Nunca** rode `drizzle-kit push`/`migrate` nem `node migrate.mjs` cru contra o `.env` da raiz.
 - Se você mantém um **túnel SSH ao Postgres de produção** na porta 5432, ele colide com o Postgres local — derrube o túnel antes do `pnpm dev:up` (ou o container não sobe na 5432). A porta 5432 local pertence ao banco de dev.

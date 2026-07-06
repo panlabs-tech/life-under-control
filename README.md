@@ -99,7 +99,8 @@ pnpm dev:smoke                          # docker compose --profile full up --bui
 ### Bom saber
 
 - **Console do MinIO** (inspecionar comprovantes): http://localhost:9001 — usuário `lucminio`, senha `lucminio123`.
-- **Único tropeço comum:** um túnel SSH ao Postgres de produção na porta 5432 colide com o banco local — **derrube o túnel antes do `dev:up`**. A 5432 local pertence ao banco de dev.
+- **`/painel` deu 500 com `getaddrinfo … hzt3jhiwe…` (ou outro host esquisito)?** Seu shell tem um `DATABASE_URL` de **produção** exportado — de "carregar o `.env`", de um túnel, do jeito que você abre o editor — e o Next **não** deixa o `.env.local` sobrepor variável que já está no ambiente. O `pnpm --filter @luc/web dev` já neutraliza isso (limpa as vars de prod herdadas antes de subir), então o loop diário acima funciona como está. Só esbarra nisso quem roda `next dev` cru: aí faça `unset DATABASE_URL` antes, ou abra um terminal limpo. Confira com `echo $DATABASE_URL` — se aparecer um host que não seja `127.0.0.1`, é isso.
+- **Túnel SSH ao Postgres de produção na 5432** colide com o banco local — **derrube o túnel antes do `dev:up`**. A 5432 local pertence ao banco de dev.
 
 ## Testes e qualidade
 
