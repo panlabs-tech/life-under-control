@@ -51,7 +51,7 @@ describe("ContaForm — formulário gêmeo de tela única", () => {
   })
 
   it("test_edicao_expoe_todos_os_campos_preenchidos_incluindo_n_esimo_dia_util", () => {
-    render(
+    const { container } = render(
       <ContaForm
         mode="edit"
         formAction={noop}
@@ -77,7 +77,8 @@ describe("ContaForm — formulário gêmeo de tela única", () => {
     expect(screen.getByLabelText("Mês-âncora")).toHaveValue("3")
     expect(screen.getByRole("radio", { name: "N-ésimo dia útil" })).toBeChecked()
     expect(screen.getByLabelText("Dia útil nº")).toHaveValue(5)
-    expect(screen.getByLabelText("Offset de vencimento")).toHaveValue("1")
+    expect(screen.queryByLabelText("Offset de vencimento")).not.toBeInTheDocument()
+    expect(container.querySelector('input[name="dueMonthOffset"]')).toHaveValue("1")
     expect(screen.queryByLabelText(/primeira competência/i)).not.toBeInTheDocument()
   })
 
@@ -96,6 +97,25 @@ describe("ContaForm — formulário gêmeo de tela única", () => {
     await user.click(screen.getByRole("radio", { name: "Último dia útil" }))
     expect(screen.queryByLabelText("Dia útil nº")).not.toBeInTheDocument()
     expect(screen.queryByLabelText("Dia do mês")).not.toBeInTheDocument()
+  })
+
+  it("test_periodicidade_abre_com_opcoes_legiveis_no_tema_escuro", () => {
+    render(<ContaForm mode="create" formAction={noop} logoFile={null} onLogoFileChange={noop} />)
+
+    const periodicidade = screen.getByLabelText("Periodicidade")
+    expect(periodicidade).toHaveClass("[color-scheme:dark]")
+    for (const option of screen.getAllByRole("option")) {
+      expect(option).toHaveClass("bg-luc-surface-3", "text-luc-text")
+    }
+  })
+
+  it("test_opcoes_de_periodicidade_e_forma_usam_a_mesma_tipografia", () => {
+    render(<ContaForm mode="create" formAction={noop} logoFile={null} onLogoFileChange={noop} />)
+
+    const periodicidade = screen.getByLabelText("Periodicidade")
+    const diaFixo = screen.getByRole("radio", { name: "Dia fixo" }).closest("label")
+    expect(periodicidade).toHaveClass("font-sans", "text-[14px]", "font-medium")
+    expect(diaFixo).toHaveClass("font-sans", "text-[14px]", "font-medium")
   })
 
   it("test_erro_do_servidor_foca_o_primeiro_campo_invalido", () => {

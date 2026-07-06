@@ -82,14 +82,14 @@ describe("EditarContaModal (#97)", () => {
     expect(screen.getByLabelText("Fechar diálogo")).toHaveClass("backdrop-blur-[3px]")
   })
 
-  it("test_edicao_expoe_a_regra_completa", () => {
+  it("test_edicao_expoe_os_campos_editaveis_sem_offset", () => {
     renderModal()
     expect(screen.getByLabelText("Descrição (opcional)")).toHaveValue("Energia do apartamento")
     expect(screen.getByLabelText("Periodicidade")).toHaveValue("1")
     expect(screen.getByText("Dia fixo")).toBeInTheDocument()
     expect(screen.getByText("N-ésimo dia útil")).toBeInTheDocument()
     expect(screen.getByText("Último dia útil")).toBeInTheDocument()
-    expect(screen.getByLabelText("Offset de vencimento")).toHaveValue("0")
+    expect(screen.queryByLabelText("Offset de vencimento")).not.toBeInTheDocument()
   })
 
   it("test_regra_avancada_abre_editavel_sem_segmento_manter", () => {
@@ -124,7 +124,7 @@ describe("EditarContaModal (#97)", () => {
     expect(replace).toHaveBeenCalledWith(CLOSE, { scroll: false })
   })
 
-  it("test_submeter_dispara_a_action_da_edicao_rapida", async () => {
+  it("test_submeter_dispara_a_action_da_edicao", async () => {
     const user = userEvent.setup()
     const action = vi.fn(async (): Promise<ContaFormState> => ({ erros: [] }))
     renderModal({}, action)

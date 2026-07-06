@@ -57,12 +57,8 @@ const FORMAS = [
   { value: "ultimo-dia-util", label: "Último dia útil" },
 ]
 
-const OFFSETS = [
-  { value: "0", label: "Mesmo mês da competência" },
-  { value: "1", label: "+1 mês (vence no mês seguinte)" },
-  { value: "2", label: "+2 meses" },
-  { value: "3", label: "+3 meses" },
-]
+const selectClass = `${compactInputClass} font-sans text-[14px] font-medium [color-scheme:dark]`
+const optionClass = "bg-luc-surface-3 font-sans text-[14px] font-medium text-luc-text"
 
 const ORDEM_CAMPOS = [
   "nome",
@@ -72,7 +68,6 @@ const ORDEM_CAMPOS = [
   "dueRuleKind",
   "dueRuleDay",
   "dueRuleNth",
-  "dueMonthOffset",
   "icon",
 ]
 
@@ -87,7 +82,6 @@ export function ContaForm(props: ContaFormProps) {
   const [dueRuleKind, setDueRuleKind] = useState(inicial.dueRuleKind)
   const [dueRuleDay, setDueRuleDay] = useState(inicial.dueRuleDay)
   const [dueRuleNth, setDueRuleNth] = useState(inicial.dueRuleNth)
-  const [dueMonthOffset, setDueMonthOffset] = useState(inicial.dueMonthOffset)
   const [icon, setIcon] = useState(inicial.icon)
   const [iconesAbertos, setIconesAbertos] = useState(false)
   const formId = useId()
@@ -110,6 +104,7 @@ export function ContaForm(props: ContaFormProps) {
 
   return (
     <form action={props.formAction} className="flex flex-col gap-5" aria-busy={props.pending}>
+      <input type="hidden" name="dueMonthOffset" value={inicial.dueMonthOffset} />
       <section className="flex flex-col gap-[13px]">
         <GrupoTitulo
           icon={Tag}
@@ -171,11 +166,11 @@ export function ContaForm(props: ContaFormProps) {
             name="intervalMonths"
             value={intervalMonths}
             onChange={(event) => setIntervalMonths(event.target.value)}
-            className={compactInputClass}
+            className={selectClass}
             aria-invalid={Boolean(erroDe("intervalMonths"))}
           >
             {PERIODICIDADES_PADRAO.map((months) => (
-              <option key={months} value={months}>
+              <option key={months} value={months} className={optionClass}>
                 {RECORRENCIA_NOMES[months]}
               </option>
             ))}
@@ -193,14 +188,14 @@ export function ContaForm(props: ContaFormProps) {
               name="anchorMonth"
               value={anchorMonth}
               onChange={(event) => setAnchorMonth(event.target.value)}
-              className={compactInputClass}
+              className={selectClass}
               aria-invalid={Boolean(erroDe("anchorMonth"))}
             >
-              <option value="" disabled>
+              <option value="" disabled className={optionClass}>
                 Em que mês cai?
               </option>
               {MESES.map((mes, index) => (
-                <option key={mes} value={index + 1}>
+                <option key={mes} value={index + 1} className={optionClass}>
                   {mes}
                 </option>
               ))}
@@ -221,7 +216,7 @@ export function ContaForm(props: ContaFormProps) {
             {FORMAS.map((forma, index) => (
               <label
                 key={forma.value}
-                className={`flex min-h-[38px] cursor-pointer items-center gap-2.5 rounded-[9px] border px-3 text-[12.5px] font-semibold transition-colors focus-within:ring-2 focus-within:ring-luc-accent ${
+                className={`flex min-h-[38px] cursor-pointer items-center gap-2.5 rounded-[9px] border px-3 font-sans text-[14px] font-medium transition-colors focus-within:ring-2 focus-within:ring-luc-accent ${
                   dueRuleKind === forma.value
                     ? "border-luc-accent/45 bg-luc-accent-06 text-luc-text"
                     : "border-luc-border bg-white/[0.03] text-luc-text-2 hover:border-luc-border-strong"
@@ -284,27 +279,6 @@ export function ContaForm(props: ContaFormProps) {
             />
           </Field>
         )}
-        <Field
-          label="Offset de vencimento"
-          labelClassName={compactLabelClass}
-          htmlFor={idDe("dueMonthOffset")}
-          error={erroDe("dueMonthOffset")}
-        >
-          <select
-            id={idDe("dueMonthOffset")}
-            name="dueMonthOffset"
-            value={dueMonthOffset}
-            onChange={(event) => setDueMonthOffset(event.target.value)}
-            className={compactInputClass}
-            aria-invalid={Boolean(erroDe("dueMonthOffset"))}
-          >
-            {OFFSETS.map((offset) => (
-              <option key={offset.value} value={offset.value}>
-                {offset.label}
-              </option>
-            ))}
-          </select>
-        </Field>
       </section>
 
       <section className="flex flex-col gap-[13px] border-luc-border border-t pt-5">
