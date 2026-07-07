@@ -20,11 +20,13 @@ export type EventoWebhook =
       texto: string | null
       midia: MidiaRecebida | null
     }
+  | { tipo: "interactive"; waMessageId: string; remetente: string; replyId: string }
   | { tipo: "status" }
   | { tipo: "template" }
   | { tipo: "desconhecido" }
 
 type MidiaBruta = { id?: unknown; mime_type?: unknown }
+type InteractiveBruto = { button_reply?: { id?: unknown }; list_reply?: { id?: unknown } }
 type MensagemBruta = {
   id?: unknown
   from?: unknown
@@ -32,6 +34,7 @@ type MensagemBruta = {
   text?: { body?: unknown }
   image?: MidiaBruta
   document?: MidiaBruta
+  interactive?: InteractiveBruto
 }
 type ValorBruto = {
   messages?: MensagemBruta[]
@@ -51,15 +54,41 @@ function extrairMidia(m: MensagemBruta): MidiaRecebida | null {
   return { mediaId: bruta.id, tipoMime: bruta.mime_type }
 }
 
+/**
+ * O id da resposta interativa (botão ou linha de lista) que a Meta manda quando a
+ * Pessoa toca um botão/linha da Proposta — é exatamente o `id` que
+ * `botoesDaProposta`/`linhasContasProposta` embutiram. `null` se ilegível.
+ */
+function extrairReplyId(i: InteractiveBruto | undefined): string | null {
+  const id = i?.button_reply?.id ?? i?.list_reply?.id
+  return typeof id === "string" && id.length > 0 ? id : null
+}
+
+/** Uma mensagem vira evento: resposta a botão/lista → `interactive`; o resto → `mensagem`. */
+function classificarMensagem(m: MensagemBruta): EventoWebhook {
+  if (m.type === "interactive") {
+    const replyId = extrairReplyId(m.interactive)
+    if (replyId) {
+      return {
+        tipo: "interactive",
+        waMessageId: String(m.id ?? ""),
+        remetente: String(m.from ?? ""),
+        replyId,
+      }
+    }
+  }
+  return {
+    tipo: "mensagem",
+    waMessageId: String(m.id ?? ""),
+    remetente: String(m.from ?? ""),
+    texto: m.type === "text" && typeof m.text?.body === "string" ? m.text.body : null,
+    midia: extrairMidia(m),
+  }
+}
+
 function classificarValor(value: ValorBruto): EventoWebhook[] {
   if (Array.isArray(value.messages) && value.messages.length > 0) {
-    return value.messages.map((m) => ({
-      tipo: "mensagem",
-      waMessageId: String(m.id ?? ""),
-      remetente: String(m.from ?? ""),
-      texto: m.type === "text" && typeof m.text?.body === "string" ? m.text.body : null,
-      midia: extrairMidia(m),
-    }))
+    return value.messages.map(classificarMensagem)
   }
 
   if (Array.isArray(value.statuses) && value.statuses.length > 0) return [{ tipo: "status" }]

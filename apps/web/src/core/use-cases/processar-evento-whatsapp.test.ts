@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest"
 import type { Bill } from "../domain/bill"
 import type { Pessoa } from "../domain/household"
+import type { PaymentProposal } from "../domain/payment-proposal"
 import type { BillRepo } from "../ports/bill-repo"
+import { fakeAttachmentRepo } from "./attachment-repo.fake"
 import { fakeAttachmentStore } from "./attachment-store.fake"
 import { fakeCalendar } from "./calendar.fake"
 import { fakeContaMatcher } from "./conta-matcher.fake"
@@ -10,6 +12,7 @@ import { fakePaymentRepo } from "./payment-repo.fake"
 import { processarEventoWhatsapp, TEXTO_INSTRUCAO_USO } from "./processar-evento-whatsapp"
 import type { ComprovanteDeps } from "./propor-lancamento-comprovante"
 import { fakeReceiptExtractor } from "./receipt-extractor.fake"
+import type { ResponderDeps } from "./responder-proposta"
 import { fakeUserRepo } from "./user-repo.fake"
 import { fakeWhatsappEventRepo } from "./whatsapp-event-repo.fake"
 import { fakeWhatsappMediaFetcher } from "./whatsapp-media-fetcher.fake"
@@ -114,6 +117,71 @@ function comprovanteFake(over: Partial<ComprovanteDeps> = {}): ComprovanteDeps {
   }
 }
 
+function payloadInteracao(waMessageId: string, from: string, replyId: string) {
+  return {
+    entry: [
+      {
+        changes: [
+          {
+            value: {
+              messages: [
+                {
+                  id: waMessageId,
+                  from,
+                  type: "interactive",
+                  interactive: { type: "button_reply", button_reply: { id: replyId, title: "x" } },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ],
+  }
+}
+
+function proposta159(): PaymentProposal {
+  return {
+    id: "prop-1",
+    householdId: "lar-1",
+    waMessageId: "wamid.orig",
+    bytesHash: "hash-1",
+    paidBy: "u-thiago",
+    billId: "bill-condo",
+    valorCentavos: 12000,
+    dataPagamento: "2026-07-05",
+    competencia: "2026-07",
+    favorecido: "Condomínio",
+    stagingKey: "finance/proposals/lar-1/prop-1",
+    tipoMime: "image/jpeg",
+    estado: "proposta",
+    criadoEm: "2026-07-07T12:00:00.000Z",
+  }
+}
+
+/** Bundle de resposta aos botões (#159) com fakes — o Lar `lar-1`, a Conta `bill-condo`. */
+function responderFake(proposalRepo: ReturnType<typeof fakePaymentProposalRepo>): ResponderDeps {
+  const billRepo: Pick<BillRepo, "listarBills"> = {
+    async listarBills() {
+      return [BILL_CONDO]
+    },
+  }
+  return {
+    proposalRepo,
+    paymentRepo: fakePaymentRepo([]),
+    attachmentRepo: fakeAttachmentRepo([]),
+    billRepo,
+    matcher: fakeContaMatcher(["bill-condo"]),
+    store: fakeAttachmentStore([
+      { chave: "finance/proposals/lar-1/prop-1", tamanhoBytes: 1, tipoMime: "image/jpeg" },
+    ]),
+    messenger: fakeWhatsappMessenger(),
+    clock: { hoje: () => "2026-07-08" },
+    calendar: fakeCalendar(),
+    novoId: () => "att-1",
+  }
+}
+
 describe("processarEventoWhatsapp (Seam 1)", () => {
   it("test_remetente_vinculado_recebe_instrucao_de_uso", async () => {
     const thiago = pessoa()
@@ -161,6 +229,20 @@ describe("processarEventoWhatsapp (Seam 1)", () => {
       ),
     ).resolves.not.toThrow()
     expect(messenger.enviados).toEqual([])
+  })
+
+  it("test_botao_de_vinculado_roteia_pro_responder_e_encerra_a_proposta", async () => {
+    const userRepo = fakeUserRepo([pessoa({ householdId: "lar-1" })])
+    const eventRepo = fakeWhatsappEventRepo()
+    const proposalRepo = fakePaymentProposalRepo([proposta159()])
+    const responder = responderFake(proposalRepo)
+
+    await processarEventoWhatsapp(
+      { userRepo, eventRepo, messenger: fakeWhatsappMessenger(), responder: () => responder },
+      payloadInteracao("wamid.btn", "5511987654321", "cancelar:prop-1"),
+    )
+
+    expect(proposalRepo.propostas[0].estado).toBe("cancelada")
   })
 
   it("test_remetente_nao_vinculado_e_ignorado_em_silencio", async () => {

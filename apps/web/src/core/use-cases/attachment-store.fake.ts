@@ -38,6 +38,11 @@ export function fakeAttachmentStore(seed: ObjetoFake[] = []): FakeAttachmentStor
     async remover(chave) {
       bucket.delete(chave)
     },
+    async copiar(origem, destino) {
+      // Promoção staging→canônico: o objeto muda de chave, metadados o acham no destino.
+      const objeto = bucket.get(origem)
+      if (objeto) bucket.set(destino, objeto)
+    },
     chaves: () => [...bucket.keys()],
   }
 }

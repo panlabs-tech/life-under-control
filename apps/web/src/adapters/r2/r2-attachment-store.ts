@@ -1,4 +1,5 @@
 import {
+  CopyObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
@@ -109,6 +110,13 @@ export function r2AttachmentStore(
     },
     async remover(chave: string): Promise<void> {
       await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: chave }))
+    },
+    async copiar(origem: string, destino: string): Promise<void> {
+      // Cópia server-side no R2 (S3 CopyObject): promove o comprovante de staging
+      // à chave canônica sem baixar/subir os bytes. CopySource inclui o bucket.
+      await client.send(
+        new CopyObjectCommand({ Bucket: bucket, Key: destino, CopySource: `${bucket}/${origem}` }),
+      )
     },
   }
 }

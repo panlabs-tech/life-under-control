@@ -136,6 +136,76 @@ describe("classificarEventoWebhook", () => {
     ])
   })
 
+  it("test_resposta_de_botao_classifica_como_interactive_com_reply_id", () => {
+    const payload = {
+      entry: [
+        {
+          changes: [
+            {
+              value: {
+                messages: [
+                  {
+                    id: "wamid.BTN",
+                    from: "5511987654321",
+                    type: "interactive",
+                    interactive: {
+                      type: "button_reply",
+                      button_reply: { id: "confirmar:prop-1", title: "Confirmar" },
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    }
+
+    expect(classificarEventoWebhook(payload)).toEqual([
+      {
+        tipo: "interactive",
+        waMessageId: "wamid.BTN",
+        remetente: "5511987654321",
+        replyId: "confirmar:prop-1",
+      },
+    ])
+  })
+
+  it("test_resposta_de_lista_classifica_como_interactive", () => {
+    const payload = {
+      entry: [
+        {
+          changes: [
+            {
+              value: {
+                messages: [
+                  {
+                    id: "wamid.LST",
+                    from: "5511987654321",
+                    type: "interactive",
+                    interactive: {
+                      type: "list_reply",
+                      list_reply: { id: "conta:prop-1:bill-luz", title: "Luz" },
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    }
+
+    expect(classificarEventoWebhook(payload)).toEqual([
+      {
+        tipo: "interactive",
+        waMessageId: "wamid.LST",
+        remetente: "5511987654321",
+        replyId: "conta:prop-1:bill-luz",
+      },
+    ])
+  })
+
   it("test_status_update_classifica_como_status", () => {
     const payload = {
       entry: [

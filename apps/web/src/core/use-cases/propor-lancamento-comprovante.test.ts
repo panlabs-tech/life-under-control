@@ -359,6 +359,27 @@ describe("proporLancamentoComprovante (Seam 1)", () => {
         }
         return jaExistente
       },
+      async obterPorId() {
+        return null
+      },
+      async confirmar() {
+        return null
+      },
+      async reabrir() {
+        return null
+      },
+      async cancelar() {
+        return null
+      },
+      async marcarExpirada() {
+        return null
+      },
+      async atualizarConta() {
+        return null
+      },
+      async listarAbertas() {
+        return []
+      },
     }
     const deps = {
       mediaFetcher: fakeWhatsappMediaFetcher({ "media-1": midia() }),

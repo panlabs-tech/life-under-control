@@ -34,4 +34,27 @@ export type PaymentProposalRepo = {
    * abre uma Proposta nova). `null` se não há repetição ativa.
    */
   obterAtivaPorHash(householdId: string, bytesHash: string): Promise<PaymentProposal | null>
+  /** A Proposta do Lar por id (qualquer estado) — os botões agem sobre ela. `null` se não existe. */
+  obterPorId(householdId: string, id: string): Promise<PaymentProposal | null>
+  /**
+   * Transição CAS `proposta → confirmada` (o Confirmar). Devolve a Proposta
+   * atualizada, ou `null` se ela **já não estava** em `proposta` (clique repetido
+   * ou já resolvida) — a trava de idempotência: só um Confirmar cria Lançamento.
+   */
+  confirmar(householdId: string, id: string): Promise<PaymentProposal | null>
+  /** CAS `confirmada → proposta` — compensação se a criação do Lançamento falhar após o Confirmar. */
+  reabrir(householdId: string, id: string): Promise<PaymentProposal | null>
+  /** Transição CAS `proposta → cancelada` (o Cancelar). `null` se já não estava em `proposta`. */
+  cancelar(householdId: string, id: string): Promise<PaymentProposal | null>
+  /** Transição CAS `proposta → expirada` (limpeza lazy ou varredura). `null` se já não estava em `proposta`. */
+  marcarExpirada(householdId: string, id: string): Promise<PaymentProposal | null>
+  /** Regrava Conta e Competência de uma Proposta ainda aberta (Trocar Conta). `null` se não está em `proposta`. */
+  atualizarConta(
+    householdId: string,
+    id: string,
+    billId: string,
+    competencia: string | null,
+  ): Promise<PaymentProposal | null>
+  /** Todas as Propostas ainda abertas (`proposta`) — a varredura oportunista filtra as expiradas pelo relógio. */
+  listarAbertas(): Promise<PaymentProposal[]>
 }

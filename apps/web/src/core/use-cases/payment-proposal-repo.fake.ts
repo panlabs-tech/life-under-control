@@ -1,4 +1,8 @@
-import { ESTADOS_PROPOSTA_ATIVA, type PaymentProposal } from "@/core/domain/payment-proposal"
+import {
+  ESTADOS_PROPOSTA_ATIVA,
+  type EstadoProposta,
+  type PaymentProposal,
+} from "@/core/domain/payment-proposal"
 import {
   type PaymentProposalRepo,
   PropostaDuplicadaError,
@@ -26,6 +30,18 @@ export function fakePaymentProposalRepo(iniciais: PaymentProposal[] = []): Payme
     )
   }
 
+  function transicao(
+    householdId: string,
+    id: string,
+    de: EstadoProposta,
+    para: EstadoProposta,
+  ): PaymentProposal | null {
+    const p = propostas.find((x) => x.householdId === householdId && x.id === id)
+    if (!p || p.estado !== de) return null
+    p.estado = para
+    return p
+  }
+
   return {
     propostas,
     async criar(nova) {
@@ -39,6 +55,31 @@ export function fakePaymentProposalRepo(iniciais: PaymentProposal[] = []): Payme
     },
     async obterAtivaPorHash(householdId, bytesHash) {
       return ativaPorHash(householdId, bytesHash)
+    },
+    async obterPorId(householdId, id) {
+      return propostas.find((p) => p.householdId === householdId && p.id === id) ?? null
+    },
+    async confirmar(householdId, id) {
+      return transicao(householdId, id, "proposta", "confirmada")
+    },
+    async reabrir(householdId, id) {
+      return transicao(householdId, id, "confirmada", "proposta")
+    },
+    async cancelar(householdId, id) {
+      return transicao(householdId, id, "proposta", "cancelada")
+    },
+    async marcarExpirada(householdId, id) {
+      return transicao(householdId, id, "proposta", "expirada")
+    },
+    async atualizarConta(householdId, id, billId, competencia) {
+      const p = propostas.find((x) => x.householdId === householdId && x.id === id)
+      if (p?.estado !== "proposta") return null
+      p.billId = billId
+      p.competencia = competencia
+      return p
+    },
+    async listarAbertas() {
+      return propostas.filter((p) => p.estado === "proposta")
     },
   }
 }

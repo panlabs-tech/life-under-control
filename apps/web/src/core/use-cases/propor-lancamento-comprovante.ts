@@ -78,7 +78,7 @@ export type ComprovanteDeps = {
 }
 
 /** Remove o staging órfão sem derrubar o fluxo — o objeto vira lixo a coletar se falhar, nunca um throw. */
-async function removerStagingSeguro(
+export async function removerStagingSeguro(
   store: Pick<AttachmentStore, "remover">,
   chave: string,
   log: (mensagem: string) => void,

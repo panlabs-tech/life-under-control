@@ -3,6 +3,7 @@ import { bedrockContaMatcher } from "@/adapters/bedrock/bedrock-conta-matcher"
 import { bedrockReceiptExtractor } from "@/adapters/bedrock/bedrock-receipt-extractor"
 import { nationalBankCalendar } from "@/adapters/calendar/national-bank-calendar"
 import { systemClock } from "@/adapters/clock/system-clock"
+import { drizzleAttachmentRepo } from "@/adapters/db/attachment-repo.drizzle"
 import { drizzleBillRepo } from "@/adapters/db/bill-repo.drizzle"
 import { drizzleWhatsappProposalRepo } from "@/adapters/db/payment-proposal-repo.drizzle"
 import { drizzlePaymentRepo } from "@/adapters/db/payment-repo.drizzle"
@@ -95,6 +96,25 @@ export async function POST(request: Request): Promise<Response> {
             messenger,
             clock: systemClock(),
             calendar: nationalBankCalendar(),
+          }),
+          // Resposta aos botões da Proposta (#159) — as deps do comprovante mais o
+          // attachmentRepo (o Confirmar cria o Anexo). Preguiçosa pelo mesmo motivo.
+          responder: () => ({
+            proposalRepo: drizzleWhatsappProposalRepo(),
+            paymentRepo: drizzlePaymentRepo(),
+            attachmentRepo: drizzleAttachmentRepo(),
+            billRepo: drizzleBillRepo(),
+            matcher: bedrockContaMatcher(),
+            store: r2AttachmentStore(),
+            messenger,
+            clock: systemClock(),
+            calendar: nationalBankCalendar(),
+          }),
+          // Varredura oportunista de Propostas expiradas (#159) — leve, sem Bedrock.
+          varredura: () => ({
+            proposalRepo: drizzleWhatsappProposalRepo(),
+            store: r2AttachmentStore(),
+            clock: systemClock(),
           }),
         },
         payload,

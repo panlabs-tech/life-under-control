@@ -1,4 +1,4 @@
-import type { BotaoInterativo } from "../domain/payment-proposal"
+import type { BotaoInterativo, LinhaInterativa } from "../domain/payment-proposal"
 
 /**
  * Port de envio de mensagens WhatsApp (ADR-0012, issues #155/#158). O adapter
@@ -13,4 +13,9 @@ export type WhatsappMessenger = {
    * Trocar Conta / Cancelar). A Graph API aceita no máximo 3 botões.
    */
   enviarBotoes(para: string, corpo: string, botoes: BotaoInterativo[]): Promise<void>
+  /**
+   * Envia uma lista interativa (Trocar Conta): um botão abre a lista de Contas
+   * selecionáveis. A Graph API aceita no máximo 10 linhas no total.
+   */
+  enviarLista(para: string, corpo: string, linhas: LinhaInterativa[]): Promise<void>
 }
