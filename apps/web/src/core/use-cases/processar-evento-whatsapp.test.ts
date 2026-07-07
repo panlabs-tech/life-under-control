@@ -1,15 +1,18 @@
 import { describe, expect, it } from "vitest"
 import type { Bill } from "../domain/bill"
 import type { Pessoa } from "../domain/household"
+import type { PaymentProposal } from "../domain/payment-proposal"
 import type { BillRepo } from "../ports/bill-repo"
+import { fakeAttachmentRepo } from "./attachment-repo.fake"
 import { fakeAttachmentStore } from "./attachment-store.fake"
 import { fakeCalendar } from "./calendar.fake"
 import { fakeContaMatcher } from "./conta-matcher.fake"
 import { fakePaymentProposalRepo } from "./payment-proposal-repo.fake"
 import { fakePaymentRepo } from "./payment-repo.fake"
 import { processarEventoWhatsapp, TEXTO_INSTRUCAO_USO } from "./processar-evento-whatsapp"
-import type { ComprovanteDeps } from "./propor-lancamento-comprovante"
+import { type ComprovanteDeps, TEXTO_TENTE_DE_NOVO } from "./propor-lancamento-comprovante"
 import { fakeReceiptExtractor } from "./receipt-extractor.fake"
+import type { ResponderDeps } from "./responder-proposta"
 import { fakeUserRepo } from "./user-repo.fake"
 import { fakeWhatsappEventRepo } from "./whatsapp-event-repo.fake"
 import { fakeWhatsappMediaFetcher } from "./whatsapp-media-fetcher.fake"
@@ -114,6 +117,71 @@ function comprovanteFake(over: Partial<ComprovanteDeps> = {}): ComprovanteDeps {
   }
 }
 
+function payloadInteracao(waMessageId: string, from: string, replyId: string) {
+  return {
+    entry: [
+      {
+        changes: [
+          {
+            value: {
+              messages: [
+                {
+                  id: waMessageId,
+                  from,
+                  type: "interactive",
+                  interactive: { type: "button_reply", button_reply: { id: replyId, title: "x" } },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ],
+  }
+}
+
+function proposta159(): PaymentProposal {
+  return {
+    id: "prop-1",
+    householdId: "lar-1",
+    waMessageId: "wamid.orig",
+    bytesHash: "hash-1",
+    paidBy: "u-thiago",
+    billId: "bill-condo",
+    valorCentavos: 12000,
+    dataPagamento: "2026-07-05",
+    competencia: "2026-07",
+    favorecido: "Condomínio",
+    stagingKey: "finance/proposals/lar-1/prop-1",
+    tipoMime: "image/jpeg",
+    estado: "proposta",
+    criadoEm: "2026-07-07T12:00:00.000Z",
+  }
+}
+
+/** Bundle de resposta aos botões (#159) com fakes — o Lar `lar-1`, a Conta `bill-condo`. */
+function responderFake(proposalRepo: ReturnType<typeof fakePaymentProposalRepo>): ResponderDeps {
+  const billRepo: Pick<BillRepo, "listarBills"> = {
+    async listarBills() {
+      return [BILL_CONDO]
+    },
+  }
+  return {
+    proposalRepo,
+    paymentRepo: fakePaymentRepo([]),
+    attachmentRepo: fakeAttachmentRepo([]),
+    billRepo,
+    matcher: fakeContaMatcher(["bill-condo"]),
+    store: fakeAttachmentStore([
+      { chave: "finance/proposals/lar-1/prop-1", tamanhoBytes: 1, tipoMime: "image/jpeg" },
+    ]),
+    messenger: fakeWhatsappMessenger(),
+    clock: { hoje: () => "2026-07-08" },
+    calendar: fakeCalendar(),
+    novoId: () => "att-1",
+  }
+}
+
 describe("processarEventoWhatsapp (Seam 1)", () => {
   it("test_remetente_vinculado_recebe_instrucao_de_uso", async () => {
     const thiago = pessoa()
@@ -161,6 +229,20 @@ describe("processarEventoWhatsapp (Seam 1)", () => {
       ),
     ).resolves.not.toThrow()
     expect(messenger.enviados).toEqual([])
+  })
+
+  it("test_botao_de_vinculado_roteia_pro_responder_e_encerra_a_proposta", async () => {
+    const userRepo = fakeUserRepo([pessoa({ householdId: "lar-1" })])
+    const eventRepo = fakeWhatsappEventRepo()
+    const proposalRepo = fakePaymentProposalRepo([proposta159()])
+    const responder = responderFake(proposalRepo)
+
+    await processarEventoWhatsapp(
+      { userRepo, eventRepo, messenger: fakeWhatsappMessenger(), responder: () => responder },
+      payloadInteracao("wamid.btn", "5511987654321", "cancelar:prop-1"),
+    )
+
+    expect(proposalRepo.propostas[0].estado).toBe("cancelada")
   })
 
   it("test_remetente_nao_vinculado_e_ignorado_em_silencio", async () => {
@@ -246,6 +328,72 @@ describe("processarEventoWhatsapp (Seam 1)", () => {
     ).resolves.not.toThrow()
 
     expect(messenger.enviados).toEqual([{ para: "5511900000002", corpo: TEXTO_INSTRUCAO_USO }])
+  })
+
+  it("test_webhook_so_de_status_nao_dispara_a_varredura", async () => {
+    // A Meta dispara `status` (sent/delivered/read) a cada mensagem que o bot manda,
+    // em alta frequência: não pode virar um SELECT de limpeza. Sem tráfego humano, sem varredura.
+    const userRepo = fakeUserRepo([pessoa()])
+    const eventRepo = fakeWhatsappEventRepo()
+    const messenger = fakeWhatsappMessenger()
+    let varreu = false
+    const varredura = () => {
+      varreu = true
+      return {
+        proposalRepo: fakePaymentProposalRepo(),
+        store: fakeAttachmentStore(),
+        clock: { hoje: () => "2026-07-08" },
+      }
+    }
+    const payloadStatus = {
+      entry: [{ changes: [{ value: { statuses: [{ id: "wamid.st2", status: "read" }] } }] }],
+    }
+
+    await processarEventoWhatsapp({ userRepo, eventRepo, messenger, varredura }, payloadStatus)
+
+    expect(varreu).toBe(false)
+  })
+
+  it("test_webhook_com_mensagem_dispara_a_varredura_oportunista", async () => {
+    const userRepo = fakeUserRepo([pessoa()])
+    const eventRepo = fakeWhatsappEventRepo()
+    const messenger = fakeWhatsappMessenger()
+    let varreu = false
+    const varredura = () => {
+      varreu = true
+      return {
+        proposalRepo: fakePaymentProposalRepo(),
+        store: fakeAttachmentStore(),
+        clock: { hoje: () => "2026-07-08" },
+      }
+    }
+
+    await processarEventoWhatsapp(
+      { userRepo, eventRepo, messenger, varredura },
+      payloadMensagem("wamid.sw", "5511987654321", "oi"),
+    )
+
+    expect(varreu).toBe(true)
+  })
+
+  it("test_comprovante_que_estoura_no_pipeline_responde_tente_de_novo", async () => {
+    // O evento já foi reivindicado (a Meta não reenvia): um throw fora dos caminhos
+    // que já degradam (aqui, o repo de Proposta fora) não pode deixar o casal no vácuo.
+    const userRepo = fakeUserRepo([pessoa({ householdId: "lar-1" })])
+    const eventRepo = fakeWhatsappEventRepo()
+    const messenger = fakeWhatsappMessenger()
+    const comprovante = comprovanteFake()
+    comprovante.proposalRepo.obterAtivaPorHash = async () => {
+      throw new Error("postgres fora")
+    }
+
+    await processarEventoWhatsapp(
+      { userRepo, eventRepo, messenger, comprovante: () => comprovante },
+      payloadComprovante("wamid.err", "5511987654321", "media-1"),
+    )
+
+    // A rede de segurança é da borda: responde pelo messenger externo, não o do bundle.
+    expect(messenger.enviados.at(-1)?.corpo).toBe(TEXTO_TENTE_DE_NOVO)
   })
 
   it("test_log_e_injetavel_em_vez_de_preso_ao_console_global", async () => {

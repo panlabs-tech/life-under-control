@@ -1,4 +1,4 @@
-import type { BotaoInterativo } from "@/core/domain/payment-proposal"
+import type { BotaoInterativo, LinhaInterativa } from "@/core/domain/payment-proposal"
 import type { WhatsappMessenger } from "@/core/ports/whatsapp-messenger"
 
 const GRAPH_API_VERSION = "v21.0"
@@ -45,6 +45,22 @@ export function httpWhatsappMessenger({ phoneNumberId, accessToken }: Config): W
           body: { text: corpo },
           action: {
             buttons: botoes.map((b) => ({ type: "reply", reply: { id: b.id, title: b.titulo } })),
+          },
+        },
+      })
+    },
+    async enviarLista(para, corpo, linhas: LinhaInterativa[]) {
+      await enviar({
+        to: para,
+        type: "interactive",
+        interactive: {
+          type: "list",
+          body: { text: corpo },
+          action: {
+            button: "Escolher Conta",
+            sections: [
+              { title: "Contas", rows: linhas.map((l) => ({ id: l.id, title: l.titulo })) },
+            ],
           },
         },
       })

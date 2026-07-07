@@ -154,3 +154,88 @@ export function formatarPropostaMensagem(resumo: ResumoProposta): string {
     `*Competência:* ${resumo.competencia ?? ILEGIVEL}`,
   ].join("\n")
 }
+
+/** Prefixo do id de uma linha da lista de Trocar Conta: `conta:{proposalId}:{billId}`. */
+export const PREFIXO_ESCOLHER_CONTA = "conta"
+
+/** Uma linha da lista interativa do WhatsApp (Trocar Conta): id oculto + título visível (≤24 chars). */
+export type LinhaInterativa = { id: string; titulo: string }
+
+/**
+ * As linhas da lista de Trocar Conta: cada Conta candidata vira uma linha cujo id
+ * carrega a Proposta e a Conta escolhida (`conta:{proposalId}:{billId}`), para o
+ * webhook de resposta (#159) saber o que refazer. O título é o nome da Conta,
+ * cortado no limite do WhatsApp (24 chars).
+ */
+export function linhasContasProposta(
+  proposalId: string,
+  contas: { billId: string; nome: string }[],
+): LinhaInterativa[] {
+  return contas.map((c) => ({
+    id: `${PREFIXO_ESCOLHER_CONTA}:${proposalId}:${c.billId}`,
+    titulo: c.nome.length > 24 ? `${c.nome.slice(0, 23)}…` : c.nome,
+  }))
+}
+
+/**
+ * O que a Pessoa tocou: um dos três botões da Proposta (Confirmar/Trocar/Cancelar)
+ * ou uma linha da lista de Trocar Conta (escolher a Conta). Inverso de
+ * `botoesDaProposta`/`linhasContasProposta`. `null` = id irreconhecível — a borda
+ * ignora em silêncio, nunca chuta uma ação.
+ */
+export type AcaoProposta =
+  | { acao: "confirmar" | "trocar" | "cancelar"; proposalId: string }
+  | { acao: "escolher-conta"; proposalId: string; billId: string }
+
+export function parsearAcaoBotao(replyId: string): AcaoProposta | null {
+  const partes = replyId.split(":")
+  if (partes.length === 2) {
+    const [acao, proposalId] = partes
+    if ((acao === ACAO_CONFIRMAR || acao === ACAO_TROCAR || acao === ACAO_CANCELAR) && proposalId) {
+      return { acao, proposalId }
+    }
+    return null
+  }
+  if (partes.length === 3 && partes[0] === PREFIXO_ESCOLHER_CONTA) {
+    const [, proposalId, billId] = partes
+    if (proposalId && billId) return { acao: "escolher-conta", proposalId, billId }
+  }
+  return null
+}
+
+/** Tempo de vida de uma Proposta não respondida (dias) — expiração derivada do relógio (#159, invariante #3). */
+export const TTL_PROPOSTA_DIAS = 7
+
+/**
+ * A Proposta expirou? Verdade **derivada** do relógio (`criadoEm + TTL < hoje`),
+ * não uma coluna: o estado `expirada` persistido é só o carimbo do ato de limpeza.
+ * Compara em data civil — granularidade de dia basta para um TTL de 7 dias.
+ */
+export function estaExpirada(
+  proposta: Pick<PaymentProposal, "criadoEm">,
+  hojeCivil: string,
+): boolean {
+  const nascimento = new Date(`${proposta.criadoEm.slice(0, 10)}T00:00:00.000Z`)
+  nascimento.setUTCDate(nascimento.getUTCDate() + TTL_PROPOSTA_DIAS)
+  return hojeCivil > nascimento.toISOString().slice(0, 10)
+}
+
+/** A Proposta velha (TTL estourado): não vira fato; orienta reenviar para abrir uma nova. */
+export function mensagemPropostaExpirada(): string {
+  return "Essa Proposta expirou (mais de 7 dias). Manda o comprovante de novo que eu faço uma nova. 🔁"
+}
+
+/**
+ * O resumo do **fato criado** no Confirmar (#159): o Lançamento nasceu com Conta,
+ * valor e Competência. Distinto de `formatarPropostaMensagem` (que ainda pede aval);
+ * aqui é a confirmação de que registrou.
+ */
+export function formatarLancamentoCriado(resumo: ResumoProposta): string {
+  return [
+    "Pronto! Registrei o pagamento ✅",
+    "",
+    `*Conta:* ${resumo.contaNome ?? "—"}`,
+    `*Valor:* ${resumo.valor ?? "—"}`,
+    `*Competência:* ${resumo.competencia ?? "—"}`,
+  ].join("\n")
+}

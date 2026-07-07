@@ -24,4 +24,11 @@ export type AttachmentStore = {
   metadados(chave: string): Promise<{ tamanhoBytes: number; tipoMime: string } | null>
   /** Apaga o objeto do bucket (remoção/substituição de um comprovante). */
   remover(chave: string): Promise<void>
+  /**
+   * Copia o objeto de uma chave para outra **dentro do bucket**, server-side (sem
+   * baixar os bytes). É a promoção do comprovante de staging (`finance/proposals/…`)
+   * à chave canônica do Lançamento (`finance/payments/…`) no Confirmar (#159): os
+   * bytes já estão no R2, só mudam de chave. Sobrescreve o destino — idempotente.
+   */
+  copiar(origem: string, destino: string): Promise<void>
 }

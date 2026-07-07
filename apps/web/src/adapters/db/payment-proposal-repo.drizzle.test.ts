@@ -144,4 +144,41 @@ suite("drizzleWhatsappProposalRepo (Seam 2 — Postgres real)", () => {
     // Mesmo hash, outro Lar → invisível (acesso simétrico é dentro do Lar, #1).
     expect(await repo.obterAtivaPorHash(outroLarId, criada.bytesHash)).toBeNull()
   })
+
+  it("test_confirmar_faz_cas_proposta_para_confirmada_e_e_idempotente", async () => {
+    const repo = drizzleWhatsappProposalRepo(db)
+    const criada = await repo.criar(nova())
+
+    expect((await repo.confirmar(larId, criada.id))?.estado).toBe("confirmada")
+    // 2º Confirmar não casa mais o WHERE estado='proposta' → null (idempotência).
+    expect(await repo.confirmar(larId, criada.id)).toBeNull()
+  })
+
+  it("test_cancelar_faz_cas_e_marcar_expirada_ignora_ja_terminal", async () => {
+    const repo = drizzleWhatsappProposalRepo(db)
+    const criada = await repo.criar(nova())
+
+    expect((await repo.cancelar(larId, criada.id))?.estado).toBe("cancelada")
+    // Já cancelada: marcarExpirada (CAS de `proposta`) não casa e devolve null.
+    expect(await repo.marcarExpirada(larId, criada.id)).toBeNull()
+  })
+
+  it("test_obter_por_id_acha_no_lar_e_escapa_de_outro", async () => {
+    const repo = drizzleWhatsappProposalRepo(db)
+    const criada = await repo.criar(nova())
+
+    expect((await repo.obterPorId(larId, criada.id))?.id).toBe(criada.id)
+    expect(await repo.obterPorId(outroLarId, criada.id)).toBeNull()
+  })
+
+  it("test_listar_abertas_traz_a_aberta_e_nao_a_confirmada", async () => {
+    const repo = drizzleWhatsappProposalRepo(db)
+    const aberta = await repo.criar(nova())
+    const confirmada = await repo.criar(nova())
+    await repo.confirmar(larId, confirmada.id)
+
+    const ids = (await repo.listarAbertas()).map((p) => p.id)
+    expect(ids).toContain(aberta.id)
+    expect(ids).not.toContain(confirmada.id)
+  })
 })

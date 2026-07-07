@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest"
 import {
   botoesDaProposta,
   chaveStaging,
+  estaExpirada,
+  formatarLancamentoCriado,
   formatarPropostaMensagem,
+  linhasContasProposta,
+  mensagemPropostaExpirada,
+  parsearAcaoBotao,
   type ResumoProposta,
 } from "./payment-proposal"
 
@@ -54,5 +59,85 @@ describe("formatarPropostaMensagem", () => {
   it("test_conta_nao_identificada_orienta_trocar_conta", () => {
     const msg = formatarPropostaMensagem(resumo({ contaNome: null }))
     expect(msg).toContain("Trocar Conta")
+  })
+})
+
+describe("parsearAcaoBotao", () => {
+  it("test_botao_confirmar_trocar_cancelar_devolve_acao_e_proposta", () => {
+    expect(parsearAcaoBotao("confirmar:prop-1")).toEqual({
+      acao: "confirmar",
+      proposalId: "prop-1",
+    })
+    expect(parsearAcaoBotao("trocar:prop-1")).toEqual({ acao: "trocar", proposalId: "prop-1" })
+    expect(parsearAcaoBotao("cancelar:prop-1")).toEqual({ acao: "cancelar", proposalId: "prop-1" })
+  })
+
+  it("test_linha_de_lista_devolve_escolher_conta_com_billId", () => {
+    expect(parsearAcaoBotao("conta:prop-1:bill-luz")).toEqual({
+      acao: "escolher-conta",
+      proposalId: "prop-1",
+      billId: "bill-luz",
+    })
+  })
+
+  it("test_id_irreconhecivel_devolve_null_nunca_chuta", () => {
+    expect(parsearAcaoBotao("oi")).toBeNull()
+    expect(parsearAcaoBotao("apagar:prop-1")).toBeNull()
+    expect(parsearAcaoBotao("confirmar:")).toBeNull()
+    expect(parsearAcaoBotao("conta:prop-1")).toBeNull()
+  })
+})
+
+describe("linhasContasProposta", () => {
+  it("test_cada_conta_vira_linha_com_id_da_proposta_e_da_conta", () => {
+    const linhas = linhasContasProposta("prop-1", [
+      { billId: "bill-luz", nome: "Luz" },
+      { billId: "bill-agua", nome: "Água" },
+    ])
+    expect(linhas).toEqual([
+      { id: "conta:prop-1:bill-luz", titulo: "Luz" },
+      { id: "conta:prop-1:bill-agua", titulo: "Água" },
+    ])
+  })
+
+  it("test_titulo_longo_corta_no_limite_do_whatsapp", () => {
+    const [linha] = linhasContasProposta("prop-1", [
+      { billId: "b", nome: "Conta com um nome bem maior que o limite de vinte e quatro" },
+    ])
+    expect(linha.titulo.length).toBeLessThanOrEqual(24)
+    expect(parsearAcaoBotao(linha.id)).toEqual({
+      acao: "escolher-conta",
+      proposalId: "prop-1",
+      billId: "b",
+    })
+  })
+})
+
+describe("estaExpirada", () => {
+  const criadoEm = "2026-07-07T12:00:00.000Z"
+  it("test_dentro_do_ttl_nao_expirou", () => {
+    expect(estaExpirada({ criadoEm }, "2026-07-14")).toBe(false)
+  })
+  it("test_passado_o_ttl_expirou", () => {
+    expect(estaExpirada({ criadoEm }, "2026-07-15")).toBe(true)
+  })
+})
+
+describe("mensagens de #159", () => {
+  it("test_proposta_expirada_orienta_reenviar", () => {
+    expect(mensagemPropostaExpirada().toLowerCase()).toContain("expirou")
+  })
+
+  it("test_lancamento_criado_confirma_o_registro", () => {
+    const msg = formatarLancamentoCriado({
+      contaNome: "Luz",
+      valor: "R$ 253,43",
+      dataPagamento: "05/07/2026",
+      competencia: "Julho/2026",
+    })
+    expect(msg).toContain("Registrei")
+    expect(msg).toContain("Luz")
+    expect(msg).toContain("R$ 253,43")
+    expect(msg).toContain("Julho/2026")
   })
 })

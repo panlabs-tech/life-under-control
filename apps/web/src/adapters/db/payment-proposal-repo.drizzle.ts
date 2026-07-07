@@ -10,6 +10,9 @@ import { type Db, getDb } from "./client"
 import { ehViolacaoDeUnicidade } from "./postgres-error"
 import { whatsappProposals } from "./schema"
 
+/** Teto de Propostas abertas lidas por passe de varredura (limpeza oportunista, não relatório). */
+const MAX_VARREDURA = 200
+
 function paraDominio(r: typeof whatsappProposals.$inferSelect): PaymentProposal {
   return {
     id: r.id,
@@ -29,8 +32,30 @@ function paraDominio(r: typeof whatsappProposals.$inferSelect): PaymentProposal 
   }
 }
 
-/** Adapter Drizzle da Proposta de Lançamento (ADR-0003, ADR-0012, issue #158). */
+/** Adapter Drizzle da Proposta de Lançamento (ADR-0003, ADR-0012, issues #158/#159). */
 export function drizzleWhatsappProposalRepo(db: Db = getDb()): PaymentProposalRepo {
+  // Transição CAS de estado: o UPDATE só casa se o estado atual for `de`; o
+  // RETURNING vazio (null) é a trava — dois cliques concorrentes, só um vence.
+  async function transicao(
+    householdId: string,
+    id: string,
+    de: EstadoProposta,
+    para: EstadoProposta,
+  ): Promise<PaymentProposal | null> {
+    const [row] = await db
+      .update(whatsappProposals)
+      .set({ estado: para })
+      .where(
+        and(
+          eq(whatsappProposals.householdId, householdId),
+          eq(whatsappProposals.id, id),
+          eq(whatsappProposals.estado, de),
+        ),
+      )
+      .returning()
+    return row ? paraDominio(row) : null
+  }
+
   return {
     async criar(nova) {
       // `estado` e `criadoEm` caem nos defaults do banco (proposta / now()). O
@@ -78,6 +103,53 @@ export function drizzleWhatsappProposalRepo(db: Db = getDb()): PaymentProposalRe
         .orderBy(desc(whatsappProposals.criadoEm))
         .limit(1)
       return row ? paraDominio(row) : null
+    },
+
+    async obterPorId(householdId, id) {
+      const [row] = await db
+        .select()
+        .from(whatsappProposals)
+        .where(and(eq(whatsappProposals.householdId, householdId), eq(whatsappProposals.id, id)))
+        .limit(1)
+      return row ? paraDominio(row) : null
+    },
+
+    confirmar(householdId, id) {
+      return transicao(householdId, id, "proposta", "confirmada")
+    },
+    cancelar(householdId, id) {
+      return transicao(householdId, id, "proposta", "cancelada")
+    },
+    marcarExpirada(householdId, id) {
+      return transicao(householdId, id, "proposta", "expirada")
+    },
+
+    async atualizarConta(householdId, id, billId, competencia) {
+      const [row] = await db
+        .update(whatsappProposals)
+        .set({ billId, competencia })
+        .where(
+          and(
+            eq(whatsappProposals.householdId, householdId),
+            eq(whatsappProposals.id, id),
+            eq(whatsappProposals.estado, "proposta"),
+          ),
+        )
+        .returning()
+      return row ? paraDominio(row) : null
+    },
+
+    async listarAbertas() {
+      // Teto na varredura oportunista: um backlog patológico de abertas não vira um
+      // scan sem-limite a cada evento — o excedente escoa nos passes seguintes (as
+      // mais antigas primeiro, que são as que já expiraram). Sweep, não relatório.
+      const rows = await db
+        .select()
+        .from(whatsappProposals)
+        .where(eq(whatsappProposals.estado, "proposta"))
+        .orderBy(whatsappProposals.criadoEm)
+        .limit(MAX_VARREDURA)
+      return rows.map(paraDominio)
     },
   }
 }

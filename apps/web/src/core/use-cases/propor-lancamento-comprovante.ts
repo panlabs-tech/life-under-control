@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto"
+import { TAMANHO_MAX_BYTES } from "../domain/attachment"
 import { type Bill, formatarDataBr } from "../domain/bill"
 import { formatBRL } from "../domain/money"
 import { descreverCompetencia, type Payment } from "../domain/payment"
@@ -48,6 +49,10 @@ export const TEXTO_TENTE_DE_NOVO =
 export const TEXTO_TIPO_NAO_SUPORTADO =
   "Não consigo ler esse tipo de arquivo. Manda uma foto (JPG ou PNG) ou o PDF do comprovante, por favor. 📎"
 
+/** Resposta de erro **permanente**: arquivo acima do teto (25 MB) — falha cedo, no staging, não só no Confirmar. */
+export const TEXTO_ARQUIVO_GRANDE =
+  "Esse arquivo é grande demais (máx. 25 MB). Manda uma versão mais leve do comprovante, por favor. 📎"
+
 /** Um comprovante recebido, já com a Pessoa e o Lar resolvidos pela borda. */
 export type ComprovanteEntrada = {
   /** O Lar da Pessoa vinculada — escopa todo acesso a dado (#1). */
@@ -78,7 +83,7 @@ export type ComprovanteDeps = {
 }
 
 /** Remove o staging órfão sem derrubar o fluxo — o objeto vira lixo a coletar se falhar, nunca um throw. */
-async function removerStagingSeguro(
+export async function removerStagingSeguro(
   store: Pick<AttachmentStore, "remover">,
   chave: string,
   log: (mensagem: string) => void,
@@ -113,6 +118,17 @@ export async function proporLancamentoComprovante(
   if (!ehMimeComprovanteSuportado(baixada.tipoMime)) {
     log(`whatsapp: tipo ${baixada.tipoMime} não suportado (evento ${waMessageId})`)
     await deps.messenger.enviarTexto(remetente, TEXTO_TIPO_NAO_SUPORTADO)
+    return
+  }
+
+  // 2b. Tamanho acima do teto = erro PERMANENTE também: o Confirmar rejeitaria os
+  //     mesmos bytes lá na frente (validarDadosAttachment, 25 MB) — melhor falhar
+  //     agora, no staging, antes de gastar extração e criar Proposta natimorta.
+  if (baixada.conteudo.byteLength > TAMANHO_MAX_BYTES) {
+    log(
+      `whatsapp: comprovante ${baixada.conteudo.byteLength}B acima do teto (evento ${waMessageId})`,
+    )
+    await deps.messenger.enviarTexto(remetente, TEXTO_ARQUIVO_GRANDE)
     return
   }
 
