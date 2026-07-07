@@ -27,7 +27,7 @@ import { AreaIcon } from "@/components/areas/AreaIcon"
 import { Logo } from "@/components/brand/Logo"
 import { PersonAvatar } from "@/components/ds/PersonAvatar"
 import { personKey } from "@/components/ds/PersonChip"
-import { buildNavModel, type NavArea } from "@/core/domain/nav-model"
+import { buildControleNavModel, buildNavModel, type NavArea } from "@/core/domain/nav-model"
 import { SUBJECTS } from "@/core/domain/subjects"
 
 export const SIDEBAR_STORAGE_KEY = "luc:sidebar-collapsed"
@@ -64,12 +64,16 @@ export function AppShell({
   const mobileDialogRef = useRef<HTMLElement>(null)
 
   const navModel = buildNavModel(pathname)
-  const rotaAtivaSlug = navModel.find((area) => area.ativa)?.slug
+  const controleNavModel = buildControleNavModel(pathname)
+  const rotaAtivaSlug =
+    navModel.find((area) => area.ativa)?.slug ??
+    (controleNavModel.ativa ? controleNavModel.slug : undefined)
   const [expandedAreas, setExpandedAreas] = useState<Set<string>>(() => new Set())
   const primeiraRotaRef = useRef(true)
 
   const areaAtiva = navModel.find((area) => area.ativa)
   const assuntoAtivo = areaAtiva?.assuntos.find((assunto) => assunto.ativa)
+  const assuntoControleAtivo = controleNavModel.assuntos.find((assunto) => assunto.ativa)
   const breadcrumb =
     pathname === "/painel"
       ? ["Painel"]
@@ -79,7 +83,9 @@ export function AppShell({
           ? assuntoAtivo
             ? [areaAtiva.nome, assuntoAtivo.nome]
             : [areaAtiva.nome]
-          : ["Life Under Control"]
+          : assuntoControleAtivo
+            ? [controleNavModel.nome, assuntoControleAtivo.nome]
+            : ["Life Under Control"]
   const currentLabel = breadcrumb.join(" › ")
 
   useEffect(() => {
@@ -216,6 +222,7 @@ export function AppShell({
         collapsed={collapsed}
         usuario={usuario}
         navModel={navModel}
+        controleNavModel={controleNavModel}
         expandedAreas={expandedAreas}
         onToggleArea={toggleArea}
       />
@@ -263,6 +270,7 @@ export function AppShell({
         closeButtonRef={mobileCloseButtonRef}
         onClose={closeMobileMenu}
         navModel={navModel}
+        controleNavModel={controleNavModel}
         expandedAreas={expandedAreas}
         onToggleArea={toggleArea}
       />
@@ -334,6 +342,7 @@ function DesktopSidebar({
   collapsed,
   usuario,
   navModel,
+  controleNavModel,
   expandedAreas,
   onToggleArea,
 }: {
@@ -341,6 +350,7 @@ function DesktopSidebar({
   collapsed: boolean
   usuario: ShellPessoa
   navModel: NavArea[]
+  controleNavModel: NavArea
   expandedAreas: Set<string>
   onToggleArea: (slug: string) => void
 }) {
@@ -386,6 +396,15 @@ function DesktopSidebar({
           >
             <Calendar size={18} strokeWidth={1.7} aria-hidden />
           </NavItem>
+          {collapsed ? (
+            <AreaFlyoutTrigger area={controleNavModel} />
+          ) : (
+            <AreaNavGroup
+              area={controleNavModel}
+              expanded={expandedAreas.has(controleNavModel.slug)}
+              onToggle={() => onToggleArea(controleNavModel.slug)}
+            />
+          )}
         </nav>
       </div>
 
@@ -739,6 +758,7 @@ function MobileMenu({
   closeButtonRef,
   onClose,
   navModel,
+  controleNavModel,
   expandedAreas,
   onToggleArea,
 }: {
@@ -748,6 +768,7 @@ function MobileMenu({
   closeButtonRef: React.RefObject<HTMLButtonElement | null>
   onClose: () => void
   navModel: NavArea[]
+  controleNavModel: NavArea
   expandedAreas: Set<string>
   onToggleArea: (slug: string) => void
 }) {
@@ -812,6 +833,13 @@ function MobileMenu({
           >
             <Calendar size={19} strokeWidth={1.7} aria-hidden />
           </NavItem>
+          <AreaNavGroup
+            area={controleNavModel}
+            expanded={expandedAreas.has(controleNavModel.slug)}
+            onToggle={() => onToggleArea(controleNavModel.slug)}
+            onNavigate={onClose}
+            size="mobile"
+          />
         </nav>
 
         <div className="mt-6 flex flex-col gap-1">

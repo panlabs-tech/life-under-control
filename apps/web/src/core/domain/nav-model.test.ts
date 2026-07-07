@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { assuntoUnicoAtivo, buildNavModel, naArea } from "./nav-model"
+import { assuntoUnicoAtivo, buildControleNavModel, buildNavModel, naArea } from "./nav-model"
 import type { Subject } from "./subjects"
 
 describe("buildNavModel (ADR-0009, issue #46)", () => {
@@ -48,6 +48,33 @@ describe("buildNavModel (ADR-0009, issue #46)", () => {
     )
 
     expect(pagamentos?.ativa).toBe(true)
+  })
+})
+
+describe("buildControleNavModel — grupo Integrações da seção Controle (side quest #152)", () => {
+  it("test_sempre_expansivel_e_nunca_inerte", () => {
+    const integracoes = buildControleNavModel("/painel")
+
+    expect(integracoes.expandivel).toBe(true)
+    expect(integracoes.inerte).toBe(false)
+    expect(integracoes.assuntos.map((assunto) => assunto.slug)).toEqual(["whatsapp"])
+  })
+
+  it("test_ativa_na_rota_whatsapp", () => {
+    const integracoes = buildControleNavModel("/whatsapp")
+    const whatsapp = integracoes.assuntos.find((assunto) => assunto.slug === "whatsapp")
+
+    expect(integracoes.ativa).toBe(true)
+    expect(whatsapp?.ativa).toBe(true)
+    expect(whatsapp?.href).toBe("/whatsapp")
+  })
+
+  it("test_inativa_fora_da_rota_whatsapp", () => {
+    const integracoes = buildControleNavModel("/painel")
+    const whatsapp = integracoes.assuntos.find((assunto) => assunto.slug === "whatsapp")
+
+    expect(integracoes.ativa).toBe(false)
+    expect(whatsapp?.ativa).toBe(false)
   })
 })
 

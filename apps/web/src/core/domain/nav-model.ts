@@ -67,6 +67,36 @@ export function buildNavModel(
 }
 
 /**
+ * Grupo "Integrações" da seção Controle da sidebar (side quest #152) — não vem
+ * de AREAS/SUBJECTS (Integrações não é uma Área da vida do Lar, é config do
+ * próprio portal), mas reaproveita a forma NavArea pra cair no mesmo
+ * accordion genérico (AreaNavGroup/AreaFlyoutTrigger) sem componente novo.
+ */
+export function buildControleNavModel(pathname: string): NavArea {
+  const whatsappAtiva = pathname === "/whatsapp"
+
+  return {
+    slug: "integracoes",
+    nome: "Integrações",
+    icon: "plug",
+    href: "",
+    estado: "ativa",
+    expandivel: true,
+    ativa: whatsappAtiva,
+    inerte: false,
+    assuntos: [
+      {
+        slug: "whatsapp",
+        nome: "WhatsApp",
+        icon: "whatsapp",
+        href: "/whatsapp",
+        ativa: whatsappAtiva,
+      },
+    ],
+  }
+}
+
+/**
  * O Assunto ativo único da Área, se houver exatamente um — decide o redirect
  * condicional da raiz (ADR-0009, emenda D1): 1 ativo redireciona, 2+ vira mini-Painel.
  */

@@ -313,6 +313,77 @@ describe("AppShell sidebar (Seam 3)", () => {
   })
 })
 
+describe("AppShell sidebar — grupo Integrações em Controle (side quest #152)", () => {
+  it("test_grupo_integracoes_expande_e_colapsa_sem_navegar", async () => {
+    const user = userEvent.setup()
+    render(<AppShell>conteúdo</AppShell>)
+    const principal = screen.getByRole("navigation", { name: "Principal" })
+    const toggle = within(principal).getByRole("button", { name: "Integrações" })
+
+    expect(toggle).toHaveAttribute("aria-expanded", "false")
+    expect(within(principal).queryByRole("link", { name: "WhatsApp" })).toBeNull()
+
+    await user.click(toggle)
+
+    expect(toggle).toHaveAttribute("aria-expanded", "true")
+    expect(within(principal).getByRole("link", { name: "WhatsApp" })).toHaveAttribute(
+      "href",
+      "/whatsapp",
+    )
+
+    await user.click(toggle)
+
+    expect(toggle).toHaveAttribute("aria-expanded", "false")
+  })
+
+  it("test_rota_whatsapp_marca_integracoes_ativa_expandida_e_no_breadcrumb", () => {
+    usePathnameMock.mockReturnValue("/whatsapp")
+    const { container } = render(<AppShell>conteúdo</AppShell>)
+    const principal = screen.getByRole("navigation", { name: "Principal" })
+    const desktopHeader = container.querySelectorAll("header")[1] as HTMLElement
+
+    expect(within(principal).getByRole("button", { name: "Integrações" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    )
+    expect(within(principal).getByRole("link", { name: "WhatsApp" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    )
+    expect(within(desktopHeader).getByText("Integrações")).toBeInTheDocument()
+    expect(within(desktopHeader).getByText("WhatsApp")).toBeInTheDocument()
+  })
+
+  it("test_integracoes_colapsada_vira_flyout_trigger", () => {
+    localStorage.setItem("luc:sidebar-collapsed", "1")
+    render(<AppShell>conteúdo</AppShell>)
+    const principal = screen.getByRole("navigation", { name: "Principal" })
+
+    expect(within(principal).getByRole("button", { name: "Integrações" })).toBeInTheDocument()
+    expect(within(principal).queryByRole("link", { name: "Integrações" })).toBeNull()
+  })
+
+  it("test_menu_movel_mostra_grupo_integracoes_e_navega_pro_whatsapp", async () => {
+    const user = userEvent.setup()
+    const { container } = render(
+      <AppShell>
+        <div>conteúdo</div>
+      </AppShell>,
+    )
+    await user.click(screen.getByRole("button", { name: "Abrir menu" }))
+    const principalMovel = screen.getByRole("navigation", { name: "Principal móvel" })
+    const toggle = within(principalMovel).getByRole("button", { name: "Integrações" })
+
+    await user.click(toggle)
+    const link = within(principalMovel).getByRole("link", { name: "WhatsApp" })
+    expect(link).toHaveAttribute("href", "/whatsapp")
+
+    await user.click(link)
+
+    expect(container.querySelector("div[data-open]")).toHaveAttribute("data-open", "false")
+  })
+})
+
 describe("AppShell sidebar colapsada — flyout de Assuntos (issue #52)", () => {
   function renderColapsada() {
     localStorage.setItem("luc:sidebar-collapsed", "1")
