@@ -37,3 +37,7 @@ def test_empty_number_is_invalid():
 
 def test_too_long_number_is_invalid():
     assert normalize_phone_e164("551198765432199") is None
+
+
+def test_non_ascii_digits_are_invalid():
+    assert normalize_phone_e164("（１１） ９８７６５-４３２１") is None  # noqa: RUF001

@@ -11,7 +11,9 @@ __all__ = ["normalize_phone_e164"]
 
 def normalize_phone_e164(raw: str) -> str | None:
     """Normalize a raw BR phone number to E.164, or `None` when invalid."""
-    digits = re.sub(r"\D", "", raw)
+    # [^0-9], not \D: Python's \d is Unicode-aware, so fullwidth/Arabic-Indic
+    # digits would survive and leak into the E.164 (the JS oracle strips them).
+    digits = re.sub(r"[^0-9]", "", raw)
 
     if digits.startswith("55") and len(digits) in (12, 13):
         local = digits[2:]

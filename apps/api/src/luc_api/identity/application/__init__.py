@@ -7,7 +7,11 @@ Map: `resolve_authenticated_user` (session -> User, degrade-not-raise),
 adapters or any framework.
 """
 
-from luc_api.identity.application.can_sign_in import InvalidAllowlistError, can_sign_in
+from luc_api.identity.application.can_sign_in import (
+    HOUSEHOLD_USER_COUNT,
+    InvalidAllowlistError,
+    can_sign_in,
+)
 from luc_api.identity.application.household_repo import (
     HouseholdRepo,
     InMemoryHouseholdRepo,
@@ -29,6 +33,7 @@ from luc_api.identity.application.resolve_authenticated_user import (
 from luc_api.identity.application.user_repo import InMemoryUserRepo, UserRepo
 
 __all__ = [
+    "HOUSEHOLD_USER_COUNT",
     "EmailNotInAllowlistError",
     "HouseholdRepo",
     "InMemoryHouseholdRepo",

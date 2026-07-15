@@ -5,7 +5,11 @@ Map: `household` (User/Household types, colors and avatar key), `access`
 Nothing here may import application, adapters or any framework.
 """
 
-from luc_api.identity.domain.access import email_in_allowlist, parse_allowlist
+from luc_api.identity.domain.access import (
+    SESSION_MAX_AGE_SECONDS,
+    email_in_allowlist,
+    parse_allowlist,
+)
 from luc_api.identity.domain.household import (
     Household,
     User,
@@ -17,6 +21,7 @@ from luc_api.identity.domain.household import (
 from luc_api.identity.domain.phone import normalize_phone_e164
 
 __all__ = [
+    "SESSION_MAX_AGE_SECONDS",
     "Household",
     "User",
     "UserColors",
