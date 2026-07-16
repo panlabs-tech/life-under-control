@@ -1,6 +1,7 @@
 """Whatsapp application layer: ports, their fakes, and the response orchestration.
 
 Map: `payment_proposal_repo` (the Proposal's CAS persistence port + fake),
+`whatsapp_event_repo` (webhook idempotency/digest claim-release port + fake),
 `conta_matcher` (LLM Bill-matching port + fake), `whatsapp_messenger`
 (message-sending port + fake), `calendar` (bank business-day port + fake),
 `bill_occurrences` (a minimal Bill-occurrence slice pulled forward from #189 —
@@ -48,6 +49,10 @@ from luc_api.whatsapp.application.respond_to_proposal import (
     respond_to_proposal,
     sweep_expired_proposals,
 )
+from luc_api.whatsapp.application.whatsapp_event_repo import (
+    FakeWhatsappEventRepo,
+    WhatsappEventRepo,
+)
 from luc_api.whatsapp.application.whatsapp_messenger import (
     FakeWhatsappMessenger,
     WhatsappMessenger,
@@ -77,6 +82,7 @@ __all__ = [
     "DuplicateProposalError",
     "FakeCalendar",
     "FakePaymentProposalRepo",
+    "FakeWhatsappEventRepo",
     "FakeWhatsappMessenger",
     "FieldPatch",
     "InteractionInput",
@@ -87,6 +93,7 @@ __all__ = [
     "SweepDeps",
     "TextEditDeps",
     "TextInput",
+    "WhatsappEventRepo",
     "WhatsappMessenger",
     "WhatsappTemplate",
     "edit_text_field",
