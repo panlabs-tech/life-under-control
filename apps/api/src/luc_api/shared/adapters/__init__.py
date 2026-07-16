@@ -6,6 +6,6 @@ boot-time `alembic upgrade head`, shared by every context's repos). May depend
 on `application` and `domain`; frameworks and I/O live here, never upstream.
 """
 
-from luc_api.shared.adapters.system_clock import SystemClock, system_clock
+from luc_api.shared.adapters.system_clock import HOUSEHOLD_TZ, SystemClock, system_clock
 
-__all__ = ["SystemClock", "system_clock"]
+__all__ = ["HOUSEHOLD_TZ", "SystemClock", "system_clock"]
