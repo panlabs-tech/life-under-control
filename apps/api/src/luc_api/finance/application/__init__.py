@@ -1,23 +1,31 @@
 """Finance application layer: use-cases, their ports and the derive-* projections.
 
-Map: ports + handmade fakes in `bill_repo`, `payment_repo`, `attachment_repo`,
-`attachment_store`, `calendar`, `notifier` and `digest_send_log`; Bill use-cases
-in `create_bill`, `list_bills`, `edit_bill`, `close_bill`, `reactivate_bill` and
-`delete_bill`; Payment use-cases in `record_payment`, `edit_payment` and
-`delete_payment`; Attachment use-cases in `prepare_attachment_upload`,
-`register_attachment` and `remove_attachment`; the deterministic historical
-import in `import_backfill`. Read-side projections (issue #189, never a
-column): `bill_card`, `occurrence_state`, `reference_period_shape`,
+Map: ports + handmade fakes in `bill_repo`, `payment_repo`, `attachment_repo` and
+`attachment_store` (these also re-export the `Bill`/`Payment` read-shaped domain
+types -- the public surface other contexts type against, e.g. whatsapp), `calendar`,
+`notifier` and `digest_send_log`; Bill use-cases in `create_bill`, `list_bills`,
+`edit_bill`, `close_bill`, `reactivate_bill` and `delete_bill`; Payment use-cases in
+`record_payment`, `edit_payment` and `delete_payment`; Attachment use-cases in
+`prepare_attachment_upload`, `register_attachment` and `remove_attachment`; the
+deterministic historical import in `import_backfill`. Read-side projections (issue
+#189, never a column): `bill_card`, `occurrence_state`, `reference_period_shape`,
 `historical_analysis`, `punctuality`, `agenda_projection`, `finance_aggregates`,
-`month_scenario`, `month_highlights`, `dashboard_attention`,
-`reference_period_bars`, `year_map`, `agenda`, `monthly_panorama` and
-`analytics_view`; the WhatsApp due-date digest's content in
-`due_digest_content` and its send use-case in `send_due_digest`. May depend on
-`domain`; must never import adapters or any framework.
+`month_scenario`, `month_highlights`, `dashboard_attention`, `reference_period_bars`,
+`year_map`, `agenda`, `monthly_panorama` and `analytics_view`; the WhatsApp due-date
+digest's content in `due_digest_content` and its send use-case in `send_due_digest`.
+May depend on `domain`; must never import adapters or any framework.
 """
 
-from luc_api.finance.application.agenda import AgendaGroup, AgendaItemView, derive_agenda
-from luc_api.finance.application.agenda_projection import AgendaArea, AgendaItem, project_agenda
+from luc_api.finance.application.agenda import (
+    AgendaGroup,
+    AgendaItemView,
+    derive_agenda,
+)
+from luc_api.finance.application.agenda_projection import (
+    AgendaArea,
+    AgendaItem,
+    project_agenda,
+)
 from luc_api.finance.application.analytics_view import (
     AnalyticsRow,
     ValueDeviation,
@@ -27,6 +35,7 @@ from luc_api.finance.application.attachment_repo import (
     AttachmentRepo,
     FakeAttachmentRepo,
     NewAttachment,
+    receipt_key,
 )
 from luc_api.finance.application.attachment_store import (
     AttachmentStore,
@@ -35,14 +44,14 @@ from luc_api.finance.application.attachment_store import (
     StoredObjectMeta,
 )
 from luc_api.finance.application.bill_card import (
-    OCCURRENCES_IN_WINDOW,
-    PROXIMITY_THRESHOLD_DAYS,
-    TOLERANCE_THRESHOLD_DAYS,
     BeaconState,
     BillCard,
     GridCell,
     GridState,
+    OCCURRENCES_IN_WINDOW,
+    PROXIMITY_THRESHOLD_DAYS,
     PaymentsSummary,
+    TOLERANCE_THRESHOLD_DAYS,
     add_months,
     beacon_of_month,
     default_payment_reference_period,
@@ -55,10 +64,26 @@ from luc_api.finance.application.bill_card import (
     reference_period_of,
     resolve_due_date,
 )
-from luc_api.finance.application.bill_repo import BillDependents, BillRepo, NewBill
-from luc_api.finance.application.calendar import Calendar, FakeCalendar
+from luc_api.finance.application.bill_repo import (
+    Bill,
+    BillDependents,
+    BillRepo,
+    DueRule,
+    FixedDayRule,
+    LastBusinessDayRule,
+    NewBill,
+    NthBusinessDayRule,
+    Recurrence,
+)
+from luc_api.finance.application.calendar import (
+    Calendar,
+    FakeCalendar,
+)
 from luc_api.finance.application.close_bill import close_bill
-from luc_api.finance.application.create_bill import InvalidBillError, create_bill
+from luc_api.finance.application.create_bill import (
+    InvalidBillError,
+    create_bill,
+)
 from luc_api.finance.application.dashboard_attention import (
     ActiveAreaHero,
     AttentionItem,
@@ -69,18 +94,33 @@ from luc_api.finance.application.dashboard_attention import (
     derive_attention_strip,
     derive_dashboard_attention,
 )
-from luc_api.finance.application.delete_bill import delete_bill, deletion_summary
+from luc_api.finance.application.delete_bill import (
+    delete_bill,
+    deletion_summary,
+)
 from luc_api.finance.application.delete_payment import delete_payment
-from luc_api.finance.application.digest_send_log import DigestSendLog, FakeDigestSendLog
-from luc_api.finance.application.due_digest_content import DigestParams, derive_digest_content
-from luc_api.finance.application.edit_bill import BillNotFoundError, edit_bill
-from luc_api.finance.application.edit_payment import PaymentNotFoundError, edit_payment
+from luc_api.finance.application.digest_send_log import (
+    DigestSendLog,
+    FakeDigestSendLog,
+)
+from luc_api.finance.application.due_digest_content import (
+    DigestParams,
+    derive_digest_content,
+)
+from luc_api.finance.application.edit_bill import (
+    BillNotFoundError,
+    edit_bill,
+)
+from luc_api.finance.application.edit_payment import (
+    PaymentNotFoundError,
+    edit_payment,
+)
 from luc_api.finance.application.finance_aggregates import (
-    SPEND_WINDOW_MONTHS,
     ComparisonState,
     FinanceAggregates,
     MonthComparison,
     MonthlySeriesPoint,
+    SPEND_WINDOW_MONTHS,
     average_monthly_spend,
     compare_closed_month,
     count_open_bills,
@@ -118,15 +158,19 @@ from luc_api.finance.application.month_scenario import (
     derive_month_scenario,
 )
 from luc_api.finance.application.monthly_panorama import (
-    DUE_SOON_THRESHOLD_DAYS,
     CardAmount,
+    DUE_SOON_THRESHOLD_DAYS,
     MonthCardState,
     PanoramaCard,
     derive_monthly_panorama,
     phrase_of_month_card,
     state_of_occurrence,
 )
-from luc_api.finance.application.notifier import FakeNotifier, Notifier, Template
+from luc_api.finance.application.notifier import (
+    FakeNotifier,
+    Notifier,
+    Template,
+)
 from luc_api.finance.application.occurrence_state import (
     Occurrence,
     beacon_of_occurrence,
@@ -134,7 +178,13 @@ from luc_api.finance.application.occurrence_state import (
     phrase_of_occurrence,
     sort_by_urgency,
 )
-from luc_api.finance.application.payment_repo import FakePaymentRepo, NewPayment, PaymentRepo
+from luc_api.finance.application.payment_repo import (
+    FakePaymentRepo,
+    NewPayment,
+    Payment,
+    PaymentRaw,
+    PaymentRepo,
+)
 from luc_api.finance.application.prepare_attachment_upload import (
     InvalidAttachmentError,
     PreparedUpload,
@@ -148,7 +198,10 @@ from luc_api.finance.application.punctuality import (
     detail_bill_punctuality,
 )
 from luc_api.finance.application.reactivate_bill import reactivate_bill
-from luc_api.finance.application.record_payment import InvalidPaymentError, record_payment
+from luc_api.finance.application.record_payment import (
+    InvalidPaymentError,
+    record_payment,
+)
 from luc_api.finance.application.reference_period_bars import (
     BarPoint,
     BarState,
@@ -181,27 +234,17 @@ from luc_api.finance.application.send_due_digest import (
     send_due_digest,
 )
 from luc_api.finance.application.year_map import (
-    YEAR_MAP_WINDOW_MONTHS,
     CellState,
     MapCell,
     MapRow,
     ValueClassification,
+    YEAR_MAP_WINDOW_MONTHS,
     YearMap,
     classify_value,
     derive_year_map,
 )
 
 __all__ = [
-    "DIGEST_LANGUAGE",
-    "DIGEST_TEMPLATE",
-    "DUE_SOON_THRESHOLD_DAYS",
-    "HISTORICAL_WINDOW_MONTHS",
-    "MONTHLY",
-    "OCCURRENCES_IN_WINDOW",
-    "PROXIMITY_THRESHOLD_DAYS",
-    "SPEND_WINDOW_MONTHS",
-    "TOLERANCE_THRESHOLD_DAYS",
-    "YEAR_MAP_WINDOW_MONTHS",
     "ActiveAreaHero",
     "AgendaArea",
     "AgendaGroup",
@@ -216,6 +259,7 @@ __all__ = [
     "BarState",
     "BeaconState",
     "BiggestPayment",
+    "Bill",
     "BillCard",
     "BillDependents",
     "BillNotFoundError",
@@ -227,11 +271,15 @@ __all__ = [
     "ClosingProjection",
     "ClosingProjectionState",
     "ComparisonState",
+    "DIGEST_LANGUAGE",
+    "DIGEST_TEMPLATE",
+    "DUE_SOON_THRESHOLD_DAYS",
     "DashboardAttention",
     "DigestDeps",
     "DigestParams",
     "DigestSendLog",
     "DigestSendResult",
+    "DueRule",
     "FakeAttachmentRepo",
     "FakeAttachmentStore",
     "FakeCalendar",
@@ -240,13 +288,17 @@ __all__ = [
     "FakePaymentRepo",
     "FakeStoredObject",
     "FinanceAggregates",
+    "FixedDayRule",
     "GridCell",
     "GridState",
+    "HISTORICAL_WINDOW_MONTHS",
     "ImportResult",
     "InvalidAttachmentError",
     "InvalidBillError",
     "InvalidPaymentError",
+    "LastBusinessDayRule",
     "LoadReceipt",
+    "MONTHLY",
     "MapCell",
     "MapRow",
     "MarkerState",
@@ -262,9 +314,14 @@ __all__ = [
     "NewPayment",
     "NextItem",
     "Notifier",
+    "NthBusinessDayRule",
+    "OCCURRENCES_IN_WINDOW",
     "Occurrence",
+    "PROXIMITY_THRESHOLD_DAYS",
     "PanoramaCard",
+    "Payment",
     "PaymentNotFoundError",
+    "PaymentRaw",
     "PaymentRepo",
     "PaymentsSummary",
     "PreparedUpload",
@@ -273,13 +330,17 @@ __all__ = [
     "PunctualityDetail",
     "PunctualityState",
     "ReceiptContent",
+    "Recurrence",
     "ReferencePeriodShape",
+    "SPEND_WINDOW_MONTHS",
     "SettledCount",
     "StoredObjectMeta",
+    "TOLERANCE_THRESHOLD_DAYS",
     "Template",
     "TrackMarker",
     "ValueClassification",
     "ValueDeviation",
+    "YEAR_MAP_WINDOW_MONTHS",
     "YearMap",
     "add_months",
     "average_monthly_spend",
@@ -336,6 +397,7 @@ __all__ = [
     "project_agenda",
     "project_month_spend",
     "reactivate_bill",
+    "receipt_key",
     "recent_occurrences",
     "record_payment",
     "reference_period_bar_points",

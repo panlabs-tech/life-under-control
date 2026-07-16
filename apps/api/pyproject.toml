@@ -5,8 +5,12 @@ description = "Life Under Control backend — domain, ports/adapters and server 
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "alembic>=1.14",
+    "boto3>=1.43.49",
     "fastapi>=0.116",
+    "psycopg[binary]>=3.2",
     "pyjwt>=2.10",
+    "sqlalchemy[asyncio]>=2.0",
     "uvicorn[standard]>=0.35",
 ]
 
@@ -18,6 +22,7 @@ dev = [
     "ruff>=0.12",
     "pyright>=1.1.390",
     "import-linter>=2.1",
+    "boto3-stubs[s3]>=1.43.49",
 ]
 
 [build-system]
@@ -101,4 +106,12 @@ containers = [
     "luc_api.shared",
     "luc_api.finance",
     "luc_api.identity",
+    "luc_api.whatsapp",
 ]
+
+[[tool.importlinter.contracts]]
+name = "whatsapp consumes financas only via the public application layer"
+type = "forbidden"
+source_modules = ["luc_api.whatsapp"]
+forbidden_modules = ["luc_api.finance.domain"]
+allow_indirect_imports = true
