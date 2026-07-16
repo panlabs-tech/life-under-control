@@ -1,53 +1,18 @@
 """Seam-2: SqlAttachmentRepo against a real Postgres — mapping and scoping (F2)."""
 
-from datetime import date
 from uuid import uuid4
 
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from luc_api.finance.adapters.attachment_repo import SqlAttachmentRepo
-from luc_api.finance.adapters.bill_repo import SqlBillRepo
-from luc_api.finance.adapters.payment_repo import SqlPaymentRepo
 from luc_api.finance.application.attachment_repo import NewAttachment
-from luc_api.finance.application.bill_repo import NewBill
-from luc_api.finance.application.payment_repo import NewPayment
 from luc_api.finance.domain.attachment import receipt_key
-from luc_api.finance.domain.bill import BillData, FixedDayRule, Recurrence
-from tests.support.postgres import create_household, create_user, requires_postgres
+from tests.support.finance import scaffold_payment as _scaffold
+from tests.support.postgres import create_household, requires_postgres
 
 __all__: list[str] = []
 
 pytestmark = requires_postgres
-
-_BILL_DATA = BillData(
-    name="Internet",
-    description=None,
-    icon="wifi",
-    recurrence=Recurrence(interval_months=1, anchor_month=None),
-    due_rule=FixedDayRule(day=15),
-    due_month_offset=0,
-    first_reference_period="2026-07",
-)
-
-
-async def _scaffold(pg_engine: AsyncEngine) -> tuple[str, str, str]:
-    """A fresh Household, its User and one Payment — the trio every Attachment needs."""
-    household_id = await create_household(pg_engine)
-    user_id = await create_user(pg_engine, household_id)
-    bill = await SqlBillRepo(pg_engine).create_bill(
-        NewBill(household_id=household_id, **vars(_BILL_DATA))
-    )
-    payment = await SqlPaymentRepo(pg_engine).create_payment(
-        NewPayment(
-            amount_cents=1500,
-            paid_on=date(2026, 7, 15),
-            reference_period="2026-07",
-            paid_by=user_id,
-            household_id=household_id,
-            bill_id=bill.id,
-        )
-    )
-    return household_id, user_id, payment.id
 
 
 def _new_attachment(household_id: str, payment_id: str, uploaded_by: str) -> NewAttachment:

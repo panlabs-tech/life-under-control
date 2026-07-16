@@ -8,8 +8,13 @@ guarantee the in-memory fake gives via its `is not None` guard.
 from typing import Any
 
 from sqlalchemy import Row, Select, func, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from luc_api.identity.application.user_repo import (
+    GoogleEmailAlreadyLinkedError,
+    WhatsappPhoneAlreadyLinkedError,
+)
 from luc_api.identity.domain.household import User
 from luc_api.shared.adapters.db.metadata import users
 
@@ -40,10 +45,20 @@ class SqlUserRepo:
             await conn.execute(stmt)
 
     async def link_google_email(self, user_id: str, google_email: str) -> None:
-        """Point-write the Google email link, normalized to lowercase."""
-        stmt = update(users).where(users.c.id == user_id).values(google_email=google_email.lower())
-        async with self._engine.begin() as conn:
-            await conn.execute(stmt)
+        """Point-write the Google email link, normalized to lowercase.
+
+        Raises:
+            GoogleEmailAlreadyLinkedError: Another User won the race for this email.
+        """
+        normalized = google_email.lower()
+        stmt = update(users).where(users.c.id == user_id).values(google_email=normalized)
+        try:
+            async with self._engine.begin() as conn:
+                await conn.execute(stmt)
+        except IntegrityError as exc:
+            if "users_google_email_lower_unique" in str(exc.orig):
+                raise GoogleEmailAlreadyLinkedError(normalized) from exc
+            raise
 
     async def get_by_whatsapp_phone(self, whatsapp_phone: str) -> User | None:
         """Point-read by the linked WhatsApp phone (already E.164-normalized)."""
@@ -51,10 +66,19 @@ class SqlUserRepo:
         return await self._one_or_none(stmt)
 
     async def link_whatsapp_phone(self, user_id: str, whatsapp_phone: str) -> None:
-        """Point-write the WhatsApp phone link."""
+        """Point-write the WhatsApp phone link.
+
+        Raises:
+            WhatsappPhoneAlreadyLinkedError: Another User won the race for this phone.
+        """
         stmt = update(users).where(users.c.id == user_id).values(whatsapp_phone=whatsapp_phone)
-        async with self._engine.begin() as conn:
-            await conn.execute(stmt)
+        try:
+            async with self._engine.begin() as conn:
+                await conn.execute(stmt)
+        except IntegrityError as exc:
+            if "users_whatsapp_phone_unique" in str(exc.orig):
+                raise WhatsappPhoneAlreadyLinkedError(whatsapp_phone) from exc
+            raise
 
     async def unlink_whatsapp_phone(self, user_id: str) -> None:
         """Point-write clears the WhatsApp phone link."""

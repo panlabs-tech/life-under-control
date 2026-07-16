@@ -4,9 +4,14 @@
 match — SQL's own `lower(NULL) = :x` -> `NULL` gives this for free.
 """
 
+import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from luc_api.identity.adapters.user_repo import SqlUserRepo
+from luc_api.identity.application.user_repo import (
+    GoogleEmailAlreadyLinkedError,
+    WhatsappPhoneAlreadyLinkedError,
+)
 from tests.support.postgres import create_household, create_user, requires_postgres
 
 __all__: list[str] = []
@@ -63,6 +68,28 @@ async def test_set_avatar_key_updates_the_user(pg_engine: AsyncEngine) -> None:
     reread = await repo.get_by_email("avatar-test@example.com")
     assert reread is not None
     assert reread.avatar_key == "identity/users/x/avatar"
+
+
+async def test_link_google_email_conflict_raises_domain_error(pg_engine: AsyncEngine) -> None:
+    household_id = await create_household(pg_engine)
+    first_user = await create_user(pg_engine, household_id)
+    second_user = await create_user(pg_engine, household_id)
+    repo = SqlUserRepo(pg_engine)
+    await repo.link_google_email(first_user, "shared@gmail.com")
+
+    with pytest.raises(GoogleEmailAlreadyLinkedError):
+        await repo.link_google_email(second_user, "shared@gmail.com")
+
+
+async def test_link_whatsapp_phone_conflict_raises_domain_error(pg_engine: AsyncEngine) -> None:
+    household_id = await create_household(pg_engine)
+    first_user = await create_user(pg_engine, household_id)
+    second_user = await create_user(pg_engine, household_id)
+    repo = SqlUserRepo(pg_engine)
+    await repo.link_whatsapp_phone(first_user, "+5511999999999")
+
+    with pytest.raises(WhatsappPhoneAlreadyLinkedError):
+        await repo.link_whatsapp_phone(second_user, "+5511999999999")
 
 
 async def test_whatsapp_phone_link_and_unlink_round_trip(pg_engine: AsyncEngine) -> None:

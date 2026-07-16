@@ -5,42 +5,20 @@ own `gen_random_uuid()` default) — reruns against the same long-lived
 Postgres never collide (the fixed-uuid lesson from the Drizzle Seam-2 suite).
 """
 
-from dataclasses import fields
 from datetime import date
 
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from luc_api.finance.adapters.bill_repo import SqlBillRepo
 from luc_api.finance.adapters.payment_repo import SqlPaymentRepo
-from luc_api.finance.application.bill_repo import NewBill
 from luc_api.finance.application.payment_repo import NewPayment
-from luc_api.finance.domain.bill import (
-    BillData,
-    FixedDayRule,
-    NthBusinessDayRule,
-    Recurrence,
-)
+from luc_api.finance.domain.bill import FixedDayRule, NthBusinessDayRule
+from tests.support.finance import new_bill as _new_bill
 from tests.support.postgres import create_household, create_user, requires_postgres
 
 __all__: list[str] = []
 
 pytestmark = requires_postgres
-
-_BASE_BILL_DATA = BillData(
-    name="Internet",
-    description=None,
-    icon="wifi",
-    recurrence=Recurrence(interval_months=1, anchor_month=None),
-    due_rule=FixedDayRule(day=15),
-    due_month_offset=0,
-    first_reference_period="2026-07",
-)
-
-
-def _new_bill(household_id: str, **over: object) -> NewBill:
-    data = _BASE_BILL_DATA
-    values = {f.name: getattr(data, f.name) for f in fields(BillData)} | over
-    return NewBill(household_id=household_id, **values)  # type: ignore[arg-type]
 
 
 async def test_create_bill_returns_domain_with_id_and_active_state(
