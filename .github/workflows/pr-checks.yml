@@ -23,8 +23,11 @@ name: pr-checks
 #
 # A referência é pinada numa tag exata (`@v1.0.0`), nunca numa flutuante: uma
 # tag flutuante reintroduziria a quebra simultânea de todos os consumidores que
-# o versionamento existe para evitar. O Dependabot bumpa a tag por PR revisável
-# quando o `.github` cortar uma nova.
+# o versionamento existe para evitar. O custo do pin exato é que subir de tag
+# vira trabalho manual **enquanto este repo não declarar `.github/dependabot.yml`
+# com o ecossistema `github-actions`**: é ele que abriria o PR de bump sozinho, e
+# ele ainda não existe aqui. O prefixo `dependabot/**` abaixo já está no gatilho
+# para o dia em que existir, e até lá não dispara nada.
 #
 # As guardas de "pula em verde enquanto o app não existe" saíram junto com o
 # pré-protótipo: as duas aplicações existem, e uma perna que se pula sozinha é
