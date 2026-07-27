@@ -1,6 +1,6 @@
 name: pr-checks
 
-# Portão 2 — o gate real antes do merge na main. O portão 1 é local
+# Portão 2 -- o gate real antes do merge na main. O portão 1 é local
 # (`lefthook.yml`) e o portão 3 é o deploy (`deploy.yml`).
 #
 # Este arquivo é um **caller** da CI compartilhada de `panlabs-tech/.github`,
@@ -176,17 +176,19 @@ jobs:
       - name: agregar o resultado das pernas por superfície
         run: |
           set -euo pipefail
-          for leg in "checks-node:${{ needs.checks-node.result }}" \
-                     "checks-python:${{ needs.checks-python.result }}"; do
-            name="${leg%%:*}"
-            result="${leg#*:}"
-            if [[ "$result" != "success" && "$result" != "skipped" ]]; then
-              echo "::error::${name} reprovou (${result})."
-              exit 1
-            fi
-          done
+          node="${{ needs.checks-node.result }}"
+          python="${{ needs.checks-python.result }}"
+          if [[ "$node" != "success" && "$node" != "skipped" ]]; then
+            echo "::error::checks-node reprovou (${node})."
+            exit 1
+          fi
+          if [[ "$python" != "success" && "$python" != "skipped" ]]; then
+            echo "::error::checks-python reprovou (${python})."
+            exit 1
+          fi
 
   security-scan:
+    name: security-scan
     uses: panlabs-tech/.github/.github/workflows/security.yml@v1.0.0
 
   # Job de fachada em volta de `security-scan`, não um rollup de superfícies.
@@ -217,6 +219,7 @@ jobs:
   # próprio PR, então rodar aqui na branch dele seria ruído no melhor caso e
   # corrida no pior.
   open-pr:
+    name: open-pr
     needs: [checks, security]
     if: github.actor != 'dependabot[bot]'
     uses: panlabs-tech/.github/.github/workflows/open-pr.yml@v1.0.0

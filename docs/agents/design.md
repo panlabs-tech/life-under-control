@@ -6,7 +6,7 @@ O documento existe porque este repo **tem interface declarada em manifesto Node*
 
 ## Onde o design mora
 
-O contrato vivo e oficial é [`docs/design/`](../design/README.md), versionado neste repo. Ele transcreve a opção visual de codinome interno **Mirante** — codinome que rastreia a origem e **nunca** aparece na UI nem em copy; a marca apresentada às Pessoas é **Life Under Control** ou **LUC**.
+O contrato vivo e oficial é [`docs/design/`](../design/README.md), versionado neste repo. Ele transcreve a opção visual de codinome interno **Mirante** -- codinome que rastreia a origem e **nunca** aparece na UI nem em copy; a marca apresentada às Pessoas é **Life Under Control** ou **LUC**.
 
 | assunto | arquivo |
 | --- | --- |
@@ -21,12 +21,12 @@ A **origem visual** é o projeto Claude Design `e38da83f-221e-4f00-844f-fe065786
 ## A precedência, e ela não é negociável
 
 1. **`docs/design/` governa toda implementação versionada.** É o contrato.
-2. **A origem visual governa composição** — layout, medidas, cores, formas.
+2. **A origem visual governa composição** -- layout, medidas, cores, formas.
 3. **`CONTEXT.md` e os ADRs governam significado e escopo.** O design decide a pele; **não** ativa uma Área nem cria domínio por conta própria.
 4. **`apps/web/src/styles/tokens.css` espelha exatamente o bloco `:root` da origem visual.** Exemplo isolado que divergir dele não altera token.
 5. **Tela existente que não aparece no protótipo** usa os componentes e fundamentos do contrato, sem alterar função. Decisão derivada fica registrada em `docs/design/`.
 
-O conflito que mais aparece é composição × vocabulário: o protótipo diz uma coisa, o glossário diz outra. Ele **não se resolve sozinho** — vira achado para o operador. Ver `docs/agents/workflow.md`.
+O conflito que mais aparece é composição × vocabulário: o protótipo diz uma coisa, o glossário diz outra. Ele **não se resolve sozinho** -- vira achado para o operador. Ver `docs/agents/workflow.md`.
 
 ## Princípios invariantes
 
@@ -41,10 +41,10 @@ Eles governam decisão de tela mesmo onde o protótipo é omisso:
 
 ## Antes de mergear tela
 
-**Gate verde não prova fidelidade**: o jsdom não renderiza layout, overflow nem cor, então a suíte passa com o pixel errado. A conferência de pixel é obrigatória quando a issue referencia protótipo, e os três passos (resolver o `sc-if`, comparar com o glossário, olhar o pixel) estão em [`workflow.md`](workflow.md#conferência-de-pixel-obrigatória-quando-a-issue-referencia-protótipo) — não os duplique aqui.
+**Gate verde não prova fidelidade**: o jsdom não renderiza layout, overflow nem cor, então a suíte passa com o pixel errado. A conferência de pixel é obrigatória quando a issue referencia protótipo, e os três passos (resolver o `sc-if`, comparar com o glossário, olhar o pixel) estão em [`workflow.md`](workflow.md#conferência-de-pixel-obrigatória-quando-a-issue-referencia-protótipo) -- não os duplique aqui.
 
 A forma dos critérios de aceite de uma issue de UI, separados por autoridade (composição / vocabulário / verificação visual), também vive lá.
 
 ## Se `docs/design/` não existir
 
-**Siga em silêncio.** Não sinalize a ausência nem proponha criar o contrato de antemão — a mesma regra de [`domain.md`](domain.md). Ele se cria quando uma decisão visual de fato se resolve.
+**Siga em silêncio.** Não sinalize a ausência nem proponha criar o contrato de antemão -- a mesma regra de [`domain.md`](domain.md). Ele se cria quando uma decisão visual de fato se resolve.

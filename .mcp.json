@@ -35,7 +35,7 @@
       "type": "stdio",
       "command": "uvx",
       "args": [
-        "awslabs.aws-api-mcp-server@latest"
+        "awslabs.aws-api-mcp-server@1.4.0"
       ],
       "env": {
         "AWS_REGION": "us-east-1"

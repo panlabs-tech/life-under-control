@@ -1,6 +1,6 @@
 # Architecture Decision Records (ADRs)
 
-Decisões arquiteturais relevantes do LUC. Formato: MADR simplificado, o da skill **global** `grill-with-docs` (`ADR-FORMAT.md`) — a skill é equipamento de máquina e não é versionada aqui, ver a seção "Equipamento de agente" do [AGENTS.md](../../AGENTS.md).
+Decisões arquiteturais relevantes do LUC. Formato: MADR simplificado, o da skill **global** `grill-with-docs` (`ADR-FORMAT.md`) -- a skill é equipamento de máquina e não é versionada aqui, ver a seção "Equipamento de agente" do [AGENTS.md](../../AGENTS.md).
 
 Um ADR se justifica quando a decisão é **difícil de reverter**, **surpreende sem o contexto** e tem **trade-off real**. Regra de domínio sem trade-off vira invariante no [CONTEXT.md](../../CONTEXT.md); convenção ou comando vai no [AGENTS.md](../../AGENTS.md).
 
