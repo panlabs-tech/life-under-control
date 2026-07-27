@@ -20,7 +20,7 @@
       ],
       "env": {
         "COOLIFY_BASE_URL": "https://vps.panlabs.tech",
-        "COOLIFY_ACCESS_TOKEN": "<COLE_O_TOKEN_DO_COOLIFY>"
+        "COOLIFY_ACCESS_TOKEN": "${COOLIFY_ACCESS_TOKEN}"
       }
     },
     "cloudflare": {
@@ -30,6 +30,16 @@
     "meta-devtools": {
       "type": "http",
       "url": "https://mcp.facebook.com/devtools"
+    },
+    "aws": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "awslabs.aws-api-mcp-server@latest"
+      ],
+      "env": {
+        "AWS_REGION": "us-east-1"
+      }
     }
   }
 }

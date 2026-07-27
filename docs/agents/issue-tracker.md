@@ -1,6 +1,6 @@
 # Issue tracker: GitHub
 
-Issues e PRDs deste repo vivem como issues do GitHub (`ThiagoPanini/life-under-control`). Use a CLI `gh` para todas as operações — ela infere o repo a partir do `git remote`.
+Issues e PRDs deste repo vivem como issues do GitHub (`panlabs-tech/life-under-control`). Use a CLI `gh` para todas as operações — ela infere o repo a partir do `git remote`.
 
 ## Convenções
 

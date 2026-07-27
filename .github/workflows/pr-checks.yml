@@ -1,11 +1,35 @@
 name: pr-checks
 
-# Portão 2 — gate real antes do merge na main.
-# Dispara no push das branches de trabalho (incluindo worktree/** geradas
-# pelo agente). open-pr abre PR para a main quando todos os checks ficam
-# verdes; o merge é autônomo no verde (ADR-0007).
+# Portão 2 — o gate real antes do merge na main. O portão 1 é local
+# (`lefthook.yml`) e o portão 3 é o deploy (`deploy.yml`).
 #
-# O job web pula em verde enquanto apps/web ainda não existe (pré-protótipo).
+# Este arquivo é um **caller** da CI compartilhada de `panlabs-tech/.github`,
+# e não mais uma cópia de YAML: os quatro arquivos de CI da frota nasceram
+# copiados um do outro e divergiram entre 48% e 86% em sete semanas, então
+# origem comum não impede deriva -- só a referência impede.
+#
+# O contrato de nomes de status: `checks` (o rollup) e `security` são os dois
+# required checks da org inteira, de nome fixo. As pernas por superfície
+# (`checks-python`, `checks-node`) variam repo a repo; o nome publicado, não.
+# Ver `scripts/panlabs/ci/rollup.py` no repo `.github`.
+#
+# **As duas pernas de checks são locais, e isso é decisão registrada, não
+# preguiça.** Elas precisam de Postgres e MinIO como `services`, e o bloco
+# `services` de um job não é parametrizável por input num reusable workflow:
+# não existe forma de passar serviços como argumento do `workflow_call`. O
+# `checks-python.yml` compartilhado documenta essa exceção nominalmente, por
+# este repo. O que é compartilhado aqui é o que dá para compartilhar: o scan de
+# segredos e a abertura do PR.
+#
+# A referência é pinada numa tag exata (`@v1.0.0`), nunca numa flutuante: uma
+# tag flutuante reintroduziria a quebra simultânea de todos os consumidores que
+# o versionamento existe para evitar. O Dependabot bumpa a tag por PR revisável
+# quando o `.github` cortar uma nova.
+#
+# As guardas de "pula em verde enquanto o app não existe" saíram junto com o
+# pré-protótipo: as duas aplicações existem, e uma perna que se pula sozinha é
+# a mesma falha que a anatomia nomeia na perna que não está declarada -- sai
+# verde sem ter rodado nada.
 
 on:
   push:
@@ -16,7 +40,15 @@ on:
       - "docs/**"
       - "refactor/**"
       - "test/**"
+      - "ci/**"
       - "worktree/**"
+      # A ferramenta EnterWorktree do Claude Code gera branch com hífen
+      # (worktree-<nome>), não com barra: sem esta linha o push de uma branch
+      # de agente não dispara checagem nenhuma.
+      - "worktree-**"
+      # A raiz de branch do Dependabot, que não é configurável. Sem ela o PR do
+      # bot não dispara checagem nenhuma e os required checks nunca saem.
+      - "dependabot/**"
 
 permissions:
   contents: read
@@ -26,11 +58,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  web:
-    name: web
+  # --- as pernas por superfície ---------------------------------------------
+
+  # Superfície Node (`apps/web`). Postgres real porque os testes de adapter
+  # Drizzle falam com banco de verdade; os demais passos ignoram o serviço.
+  checks-node:
+    name: checks-node
     runs-on: ubuntu-latest
-    # Postgres real para o teste de Seam 2 (adapter Drizzle). Os demais passos
-    # ignoram o serviço; só o passo de teste recebe DATABASE_URL.
     services:
       postgres:
         image: postgres:16-alpine
@@ -47,41 +81,29 @@ jobs:
           --health-retries 10
     steps:
       - uses: actions/checkout@v7
-      - id: appcheck
-        run: |
-          if [ -f apps/web/package.json ]; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::apps/web ainda nao existe — gate web pulado."
-          fi
       - uses: pnpm/action-setup@v6
-        if: steps.appcheck.outputs.exists == 'true'
       - uses: actions/setup-node@v6
-        if: steps.appcheck.outputs.exists == 'true'
         with:
           node-version-file: .node-version
           cache: pnpm
-      - if: steps.appcheck.outputs.exists == 'true'
-        run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile
+      # O binário direto, e não `pnpm exec biome`: aquele sai verde sem ter
+      # verificado nada quando o filtro não casa (falso-verde registrado no
+      # `AGENTS.md`).
       - name: lint (biome)
-        if: steps.appcheck.outputs.exists == 'true'
         run: node_modules/.bin/biome check apps/web
       - name: typecheck (tsc)
-        if: steps.appcheck.outputs.exists == 'true'
         run: pnpm --filter @luc/web typecheck
       - name: test (vitest)
-        if: steps.appcheck.outputs.exists == 'true'
         env:
           DATABASE_URL: postgres://luc:luc@localhost:5432/luc
         run: pnpm --filter @luc/web test
 
-  api:
-    name: api
+  # Superfície Python (`apps/api`). Postgres para as fatias de repositório e o
+  # boot do Alembic; MinIO para o `R2AttachmentStore`.
+  checks-python:
+    name: checks-python
     runs-on: ubuntu-latest
-    # Postgres real para o Seam-2 das fatias F2 (repos + fidelidade do MetaData
-    # + boot do Alembic). Os demais passos ignoram o serviço; só o passo de
-    # teste recebe DATABASE_URL.
     services:
       postgres:
         image: postgres:16-alpine
@@ -98,21 +120,11 @@ jobs:
           --health-retries 10
     steps:
       - uses: actions/checkout@v7
-      - id: appcheck
-        run: |
-          if [ -f apps/api/pyproject.toml ]; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::apps/api ainda nao existe — gate api pulado."
-          fi
-      # MinIO real pro R2AttachmentStore (#194) — mesma imagem do
-      # docker-compose local (minio/minio). O schema `services:` do GitHub
-      # Actions não passa `command:` pro container, e essa imagem exige
-      # `server /data` como args pra subir o servidor; roda via `docker run`
-      # manual em vez de `services:`.
+      # MinIO real, a mesma imagem do `docker-compose.yml` local. O schema
+      # `services:` do GitHub Actions não passa `command:` para o container, e
+      # essa imagem exige `server /data` como args para subir: daí o `docker
+      # run` manual em vez de `services:`.
       - name: start minio
-        if: steps.appcheck.outputs.exists == 'true'
         run: |
           docker run -d --name minio -p 9000:9000 \
             -e MINIO_ROOT_USER=lucminio \
@@ -122,30 +134,23 @@ jobs:
             echo "aguardando o MinIO..."; sleep 1
           done
       - uses: astral-sh/setup-uv@v6
-        if: steps.appcheck.outputs.exists == 'true'
         with:
           enable-cache: true
-      - if: steps.appcheck.outputs.exists == 'true'
-        working-directory: apps/api
+      - working-directory: apps/api
         run: uv sync --frozen
       - name: format (ruff)
-        if: steps.appcheck.outputs.exists == 'true'
         working-directory: apps/api
         run: uv run --frozen ruff format --check .
       - name: lint (ruff)
-        if: steps.appcheck.outputs.exists == 'true'
         working-directory: apps/api
         run: uv run --frozen ruff check .
       - name: types (pyright)
-        if: steps.appcheck.outputs.exists == 'true'
         working-directory: apps/api
         run: uv run --frozen pyright
       - name: imports (import-linter)
-        if: steps.appcheck.outputs.exists == 'true'
         working-directory: apps/api
         run: uv run --frozen lint-imports
       - name: test (pytest)
-        if: steps.appcheck.outputs.exists == 'true'
         working-directory: apps/api
         env:
           DATABASE_URL: postgres://luc:luc@localhost:5432/luc
@@ -155,85 +160,66 @@ jobs:
           R2_BUCKET: luc-attachments-test
         run: uv run --frozen pytest
 
-  security:
-    name: security
+  # --- o contrato de nomes de status ----------------------------------------
+
+  # O rollup: id fixo, `needs` sobre as pernas por superfície deste repo.
+  # `if: always()` mais a checagem explícita do resultado, porque sem os dois
+  # uma perna reprovada faria o rollup ser **pulado** em vez de reprovado, e
+  # pulado não bloqueia o merge do jeito que reprovado faz. É o mesmo cálculo
+  # que `panlabs.ci.rollup.rollup_conclusion` faz em Python, testado lá.
+  checks:
+    name: checks
+    needs: [checks-node, checks-python]
+    if: always()
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      # O wrapper gitleaks/gitleaks-action@v2 passou a exigir licença paga desde que
-      # o repo virou de organização ("[panlabs-tech] is an organization. License key
-      # is required."), reprovando todo PR. O binário do gitleaks é MIT e gratuito —
-      # rodamos a CLI direto. Ganho colateral: a Action varre só os commits do push,
-      # a CLI varre o histórico inteiro (medido: 214 commits, sem achado).
-      # Versão e checksum pinados: é o job de segurança, não baixa binário no escuro.
-      - name: gitleaks
-        env:
-          GITLEAKS_VERSION: "8.30.1"
-          GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+      - name: agregar o resultado das pernas por superfície
         run: |
           set -euo pipefail
-          tarball="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
-          curl -sSfL -o "/tmp/${tarball}" \
-            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${tarball}"
-          echo "${GITLEAKS_SHA256}  /tmp/${tarball}" | sha256sum --check --strict
-          tar -xzf "/tmp/${tarball}" -C /tmp gitleaks
-          /tmp/gitleaks version
+          for leg in "checks-node:${{ needs.checks-node.result }}" \
+                     "checks-python:${{ needs.checks-python.result }}"; do
+            name="${leg%%:*}"
+            result="${leg#*:}"
+            if [[ "$result" != "success" && "$result" != "skipped" ]]; then
+              echo "::error::${name} reprovou (${result})."
+              exit 1
+            fi
+          done
 
-          # Guarda anti-verde-vazio: fora de um repo git o gitleaks loga ERR,
-          # varre 0 commits e ainda assim sai 0. Gate que pode passar em silêncio
-          # não é gate — então a ausência de varredura falha o build.
-          git rev-parse --is-inside-work-tree >/dev/null
+  security-scan:
+    uses: panlabs-tech/.github/.github/workflows/security.yml@v1.0.0
 
-          # Status capturado explicitamente: com `| tee` o código de saída do
-          # gitleaks se perde e um vazamento encontrado sairia verde (medido).
-          status=0
-          /tmp/gitleaks git . --redact --no-banner --no-color >/tmp/gitleaks.log 2>&1 || status=$?
-          cat /tmp/gitleaks.log
-
-          if grep -qE '(^|[^0-9])0 commits scanned' /tmp/gitleaks.log; then
-            echo "::error::gitleaks nao varreu commit algum — varredura vazia nao conta como verde."
+  # Job de fachada em volta de `security-scan`, não um rollup de superfícies.
+  # Existe porque um job que chama um reusable workflow via `uses:` publica o
+  # check como "<job do caller> / <job do workflow chamado>", nunca só com o
+  # nome do job do caller -- comportamento do GitHub Actions, sem opção para
+  # suprimir. Sem esta fachada o required check `security` nunca existiria com
+  # esse nome exato.
+  security:
+    name: security
+    needs: [security-scan]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: agregar o resultado do scan
+        run: |
+          set -euo pipefail
+          result="${{ needs.security-scan.result }}"
+          if [[ "$result" != "success" && "$result" != "skipped" ]]; then
+            echo "::error::security-scan reprovou (${result})."
             exit 1
           fi
-          exit "$status"
 
+  # --- a esteira -------------------------------------------------------------
+
+  # Padronizado, mas deliberadamente **não** required: exigi-lo como condição de
+  # merge seria circular, porque é o job que cria o PR. O Dependabot já abre o
+  # próprio PR, então rodar aqui na branch dele seria ruído no melhor caso e
+  # corrida no pior.
   open-pr:
-    name: open-pr
-    needs: [web, api, security]
-    runs-on: ubuntu-latest
+    needs: [checks, security]
+    if: github.actor != 'dependabot[bot]'
+    uses: panlabs-tech/.github/.github/workflows/open-pr.yml@v1.0.0
     permissions:
       contents: read
       pull-requests: write
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      - name: Abrir PR para a main se ainda nao existir
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BRANCH: ${{ github.ref_name }}
-        run: |
-          set -euo pipefail
-
-          if [ "$(gh pr list --head "$BRANCH" --base main --state open --json number --jq 'length')" -ne 0 ]; then
-            echo "::notice::Ja existe PR aberto de $BRANCH para a main."
-            exit 0
-          fi
-
-          git fetch --quiet origin main
-          if [ "$(git rev-list --count FETCH_HEAD..HEAD)" -eq 0 ]; then
-            echo "::notice::$BRANCH nao tem commits novos sobre a main."
-            exit 0
-          fi
-
-          title="$(git log "FETCH_HEAD..HEAD" --pretty=%s | head -n1 || true)"
-          [ -z "$title" ] && title="$(git log -1 --pretty=%s)"
-
-          gh pr create \
-            --base main \
-            --head "$BRANCH" \
-            --title "$title" \
-            --body "PR aberto automaticamente apos checks verdes (pr-checks). Merge autonomo no verde (ADR-0007)."
-
-          echo "::notice::PR aberto: $BRANCH -> main"
