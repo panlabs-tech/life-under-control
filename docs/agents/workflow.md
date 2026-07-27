@@ -82,4 +82,4 @@ Rollout: cada outro repo da org opta-in criando seu próprio `.claude/context-ec
 - Issues e PRDs: GitHub Issues — [`issue-tracker.md`](issue-tracker.md).
 - Labels de triagem (incl. `status:ready-for-agent` / `status:hitl`): [`triage-labels.md`](triage-labels.md).
 - Glossário + invariantes de domínio: [`../../CONTEXT.md`](../../CONTEXT.md) — como consumir em [`domain.md`](domain.md).
-- Portões de CI, comandos e padrões: [`../../CLAUDE.md`](../../CLAUDE.md).
+- Os três portões, comandos e padrões: [`../../AGENTS.md`](../../AGENTS.md), que é a fonte-da-verdade da orientação de agente.

@@ -21,9 +21,18 @@ backfill-manifest*.json
 # propósito para que `pnpm --filter @luc/web dev` funcione num clone novo sem
 # passo manual. Nunca ponha segredo de produção nele (esses vivem no .env).
 !/apps/web/.env.local
-.mcp.json
-.codex/config.toml
+# O `.mcp.json` é versionado, com placeholder de variável de ambiente no lugar
+# do segredo (`${COOLIFY_ACCESS_TOKEN}`). Ignorá-lo era o que fazia a
+# configuração de MCP nunca ser de fato compartilhada apesar do nome, e o que
+# obrigava cada clone a recolar um token literal dentro de um arquivo.
+# Ver `docs/agents/mcps.md`.
 .claude/settings.local.json
+# O `.codex/` saiu do versionado: é configuração de ferramenta fora da toolchain
+# decidida, e o que ela declarava (quatro servidores MCP) o `.mcp.json` já cobre.
+# Continua **ignorado**, e o diretório inteiro, não só o `config.toml`: a cópia
+# que sobra no disco de quem já usou a ferramenta tem o token colado literal
+# dentro, e sem esta linha o próximo `git add -A` a encenaria.
+.codex/
 
 # Python
 __pycache__/

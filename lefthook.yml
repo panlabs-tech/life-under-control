@@ -1,0 +1,75 @@
+# O portão 1, local, antes do commit. O portão 2 é a CI, no PR
+# (`.github/workflows/pr-checks.yml`), e ele continua sendo o gate real: o que
+# este arquivo faz é pegar barato o erro barato, não substituir aquele.
+#
+# A anatomia cobra três coisas aqui, e o checker as verifica lendo este arquivo:
+#
+#   1. que o portão exista                     -> `local-commit-gate-exists`
+#   2. padrão de mensagem de commit            -> `commit-message-standard-declared`
+#   3. verificação de segredos antes do commit -> `secret-scan-before-commit`
+#
+# O terceiro cobra **`gitleaks` e não outro scanner**, e o motivo não é gosto: o
+# portão de CI compartilhado roda gitleaks, e um portão local que rodasse outro
+# faria "passou no local" e "passou na CI" significarem coisas diferentes.
+#
+# Este repo tem as **duas** superfícies, e cada uma roda a sua própria
+# ferramenta: `ruff` no `apps/api` e `biome` no `apps/web`. É a mesma divisão
+# que as duas pernas de checks da CI fazem, meio ciclo antes.
+#
+# **As ferramentas são equipamento da máquina, não do repo.** `lefthook`,
+# `gitleaks` e o runtime que serve o `npx` são provisionados globalmente
+# (`panlabs-tech/.github`, `docs/maquina.md`); este arquivo é a *declaração* de
+# que este repo adere ao portão, e é ela que é versionada. Um repo aberto numa
+# máquina sem equipamento provisionado perde capacidade **por design**, e não
+# por omissão.
+#
+# Instalar os hooks num clone novo: `lefthook install`.
+
+pre-commit:
+  parallel: true
+  commands:
+    # Superfície Python. `root:` faz o lefthook entrar em `apps/api/` e entregar
+    # os caminhos relativos a ela, que é onde o `uv` acha o ambiente do projeto:
+    # sem isso, `uv run` na raiz não encontraria o `pyproject.toml` da API.
+    #
+    # `--check` e não a escrita: um hook que reescreve arquivo no meio do commit
+    # deixa o índice diferente do que o autor leu, e o que ele revisou não é o
+    # que aterrissa.
+    api-format:
+      root: "apps/api/"
+      glob: "*.py"
+      run: uv run ruff format --check {staged_files}
+    api-lint:
+      root: "apps/api/"
+      glob: "*.py"
+      run: uv run ruff check {staged_files}
+
+    # Superfície Node. O binário direto, e **não** `pnpm exec biome`: aquele sai
+    # verde sem ter verificado nada quando o filtro não casa (falso-verde
+    # registrado no `AGENTS.md`), que é o modo de falha que um portão não pode
+    # ter.
+    web-check:
+      glob: "apps/web/**/*.{ts,tsx,js,jsx,mjs,json,css}"
+      run: node_modules/.bin/biome check {staged_files}
+
+    # O scan de segredos roda sobre o **staged**, que é o único momento em que
+    # barrar ainda é barato: depois do commit o segredo já está no histórico
+    # local, e tirá-lo de lá é reescrita de história, não conserto.
+    # Binário direto, a mesma versão que a CI compartilhada pina, e não a action
+    # wrapper: aquela passou a exigir licença paga em repo de organização.
+    gitleaks:
+      run: gitleaks git --staged --no-banner --redact
+
+commit-msg:
+  commands:
+    # Conventional Commits, subject minúsculo (`AGENTS.md`). Via `npx` com as
+    # versões pinadas, e não como dependência de desenvolvimento do
+    # `package.json`: a ferramenta é equipamento da máquina, e pendurá-la no
+    # manifesto do `apps/web` misturaria o que o produto precisa para rodar com
+    # o que a máquina precisa para commitar.
+    commitlint:
+      run: >-
+        npx --yes
+        --package @commitlint/cli@20.1.0
+        --package @commitlint/config-conventional@20.0.0
+        commitlint --edit {1}

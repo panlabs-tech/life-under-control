@@ -110,15 +110,15 @@ pnpm --filter @luc/web typecheck        # tsc --noEmit
 node_modules/.bin/biome check apps/web  # lint/format (NÃO use `pnpm exec biome`)
 ```
 
-Os use-cases testam com **fakes dos ports** (sem banco) e um `Clock` port no lugar do relógio real. Os testes de adapter (`*.drizzle.test.ts`) rodam contra um Postgres real — no CI, um serviço `postgres:16-alpine`; localmente, quando a stack de dev está no ar (`pnpm dev:up`). O gate `pr-checks` roda biome + typecheck + vitest e abre o PR para a `main` no verde.
+Os use-cases testam com **fakes dos ports** (sem banco) e um `Clock` port no lugar do relógio real. Os testes de adapter (`*.drizzle.test.ts`) rodam contra um Postgres real — no CI, um serviço `postgres:16-alpine`; localmente, quando a stack de dev está no ar (`pnpm dev:up`). O gate `pr-checks` roda duas pernas por superfície -- `checks-node` (biome + typecheck + vitest) e `checks-python` (ruff + pyright + import-linter + pytest) --, agrega as duas no rollup `checks` e roda o scan de segredos em `security`. `checks` e `security` são os dois required checks de nome fixo da org. No verde, o PR para a `main` é aberto sozinho.
 
 ## Fonte da verdade
 
 - [`CONTEXT.md`](CONTEXT.md) — glossário de domínio (pt-BR) e as invariantes. Código que viola invariante é bug.
 - [`docs/adr/`](docs/adr/README.md) — as decisões de arquitetura e seus porquês.
 - [`docs/design/`](docs/design/README.md) — o sistema visual (tokens, componentes, casca, vocabulário).
-- [`CLAUDE.md`](CLAUDE.md) — como o repositório é operado, inclusive por agentes.
+- [`AGENTS.md`](AGENTS.md) -- como o repositório é operado, inclusive por agentes. É a fonte-da-verdade da orientação; o [`CLAUDE.md`](CLAUDE.md) só a referencia e acrescenta o que é específico do agente primário.
 
 ## Convenções
 
-Termo de domínio em pt-BR, **identificador de código em inglês** (mapa no glossário). **Conventional Commits** com subject minúsculo. Markdown **sem hard-wrap**: uma linha por parágrafo. Detalhes em [`CLAUDE.md`](CLAUDE.md).
+Termo de domínio em pt-BR, **identificador de código em inglês** (mapa no glossário). **Conventional Commits** com subject minúsculo. Markdown **sem hard-wrap**: uma linha por parágrafo. Detalhes em [`AGENTS.md`](AGENTS.md).
