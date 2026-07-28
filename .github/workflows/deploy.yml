@@ -45,7 +45,10 @@ jobs:
         if: steps.appcheck.outputs.exists == 'true'
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/thiagopanini/life-under-control
+          # O dono do repositório, e não um nome cravado: o namespace pessoal
+          # anterior à migração para a org deixou de existir, e um literal
+          # aqui volta a quebrar na próxima vez que o dono mudar.
+          images: ghcr.io/${{ github.repository_owner }}/life-under-control
           tags: |
             type=raw,value=latest
             type=sha,format=short
@@ -85,7 +88,7 @@ jobs:
         if: steps.appcheck.outputs.exists == 'true'
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/thiagopanini/life-under-control-api
+          images: ghcr.io/${{ github.repository_owner }}/life-under-control-api
           tags: |
             type=raw,value=latest
             type=sha,format=short
